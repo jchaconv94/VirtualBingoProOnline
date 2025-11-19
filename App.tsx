@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Participant, GameState, Winner, TOTAL_BALLS, NUMBERS_PER_CARD, BingoCard } from './types.ts';
+import { Participant, GameState, Winner, TOTAL_BALLS, NUMBERS_PER_CARD, BingoCard, PatternKey } from './types.ts';
 import { generateBingoCardNumbers, generateId, checkWinners } from './utils/helpers.ts';
 import { exportToExcel, parseExcel, downloadCardImage, downloadAllCardsZip } from './services/exportService.ts';
 import RegistrationPanel from './components/RegistrationPanel.tsx';
@@ -8,6 +9,7 @@ import GamePanel from './components/GamePanel.tsx';
 import ParticipantsPanel from './components/ParticipantsPanel.tsx';
 import WinnerModal from './components/WinnerModal.tsx';
 import WinnerDetailsModal from './components/WinnerDetailsModal.tsx';
+import { Maximize2, Minimize2 } from 'lucide-react';
 
 // LocalStorage Keys
 const LS_KEYS = {
@@ -35,13 +37,17 @@ const App: React.FC = () => {
     loadFromStorage(LS_KEYS.PARTICIPANTS, [])
   );
 
-  const [gameState, setGameState] = useState<GameState>(() => 
-    loadFromStorage(LS_KEYS.GAME_STATE, {
+  const [gameState, setGameState] = useState<GameState>(() => {
+    const defaults = {
       drawnBalls: [],
       history: [],
-      lastCardSequence: 100
-    })
-  );
+      lastCardSequence: 100,
+      selectedPattern: 'FULL' as PatternKey
+    };
+    const loaded = loadFromStorage(LS_KEYS.GAME_STATE, defaults);
+    // Ensure new property exists if loaded from old state
+    return { ...defaults, ...loaded };
+  });
 
   const [winners, setWinners] = useState<Winner[]>(() => 
     loadFromStorage(LS_KEYS.WINNERS, [])
@@ -56,6 +62,8 @@ const App: React.FC = () => {
     participant: Participant;
     card: BingoCard;
   } | null>(null);
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // --- Persistence (Solo Guardar) ---
   // Como el estado inicial YA tiene los datos cargados, estos efectos no sobrescribirán con vacíos.
@@ -72,13 +80,42 @@ const App: React.FC = () => {
     localStorage.setItem(LS_KEYS.WINNERS, JSON.stringify(winners));
   }, [winners]);
 
+  // Listen for fullscreen changes (e.g. user presses ESC)
+  useEffect(() => {
+    const handleFullScreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullScreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullScreenChange);
+  }, []);
+
   // --- Actions ---
+
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
 
   const addLog = (msg: string) => {
     setGameState(prev => ({
       ...prev,
       history: [...prev.history, `${new Date().toLocaleTimeString()}: ${msg}`]
     }));
+  };
+
+  const handlePatternChange = (pattern: PatternKey) => {
+    if (gameState.drawnBalls.length > 0) {
+       if (!window.confirm("¿Cambiar el patrón a mitad de juego? Esto no afectará las bolillas ya sorteadas, pero cambiará las condiciones de victoria.")) return;
+    }
+    setGameState(prev => ({ ...prev, selectedPattern: pattern }));
+    addLog(`Patrón de victoria cambiado a: ${pattern}`);
   };
 
   const handleRegister = (data: Omit<Participant, 'id' | 'cards'>, cardsCount: number) => {
@@ -187,7 +224,8 @@ const App: React.FC = () => {
       p.cards.forEach(c => {
         if (c.numbers.includes(newBall)) {
           hitFound = true;
-          newLogs.push(`${time}: ${p.name} ${p.surname} marcó la bolilla N° ${newBall} en el cartón ${c.id}`);
+          // Optional: We could log every hit, but it might spam. 
+          // newLogs.push(`${time}: ${p.name} ${p.surname} marcó la bolilla N° ${newBall} en el cartón ${c.id}`);
         }
       });
     });
@@ -195,6 +233,8 @@ const App: React.FC = () => {
     // If no one had the ball, show generic message
     if (!hitFound) {
       newLogs.push(`${time}: Bolilla N° ${newBall} fue sorteada`);
+    } else {
+      newLogs.push(`${time}: Bolilla N° ${newBall} (Hubo aciertos)`);
     }
 
     setGameState(prev => ({
@@ -206,7 +246,7 @@ const App: React.FC = () => {
     // Check winners immediately
     // We pass the updated list of balls manually because state update is async
     const updatedBalls = [...gameState.drawnBalls, newBall];
-    const newWinners = checkWinners(participants, updatedBalls, winners);
+    const newWinners = checkWinners(participants, updatedBalls, winners, gameState.selectedPattern);
 
     if (newWinners.length > 0) {
       setWinners(prev => [...prev, ...newWinners]);
@@ -214,7 +254,7 @@ const App: React.FC = () => {
       // Show the summary modal with the batch of new winners
       setCurrentBatchWinners(newWinners);
 
-      newWinners.forEach(w => addLog(`🏆 BINGO! Ganador: ${w.participantName} (${w.cardId})`));
+      newWinners.forEach(w => addLog(`🏆 BINGO! Ganador (${gameState.selectedPattern}): ${w.participantName} (${w.cardId})`));
       
       // Confetti effect
       confetti({
@@ -330,20 +370,34 @@ const App: React.FC = () => {
           card={viewingDetailsData.card}
           drawnBalls={gameState.drawnBalls}
           onClose={() => setViewingDetailsData(null)}
+          currentPattern={gameState.selectedPattern}
         />
       )}
 
       {/* Header */}
       <header className="bg-slate-900 border-b border-slate-800 py-4 px-6 flex items-center justify-between shadow-lg sticky top-0 z-20">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-600">
-            VIRTUAL BINGO PRO
-          </h1>
-          <p className="text-xs text-slate-500 font-medium">Aplicación web de bingo virtual</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-600">
+              VIRTUAL BINGO PRO
+            </h1>
+            <p className="text-xs text-slate-500 font-medium">Aplicación web de bingo virtual</p>
+          </div>
         </div>
-        <div className="text-right hidden sm:block">
-          <div className="text-xs text-slate-400">Desarrollado por</div>
-          <div className="text-sm font-semibold text-slate-200">Ing. Jordan Chacón Villacís</div>
+        
+        <div className="flex items-center gap-6">
+           <div className="text-right hidden sm:block">
+             <div className="text-xs text-slate-400">Desarrollado por</div>
+             <div className="text-sm font-semibold text-slate-200">Ing. Jordan Chacón Villacís</div>
+           </div>
+
+           <button 
+             onClick={toggleFullScreen}
+             className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700"
+             title={isFullscreen ? "Salir de Pantalla Completa" : "Pantalla Completa"}
+           >
+             {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+           </button>
         </div>
       </header>
 
@@ -379,11 +433,13 @@ const App: React.FC = () => {
             onReset={handleReset}
             historyLog={gameState.history}
             hasParticipants={participants.length > 0}
+            currentPattern={gameState.selectedPattern}
+            onPatternChange={handlePatternChange}
           />
         </section>
 
         {/* Right: Participants & Winners */}
-        <section className="h-[600px] xl:h-[calc(100vh-140px)]">
+        <section className="h-[600px] xl:h-[calc(100vh-55px)]">
           <ParticipantsPanel 
             participants={participants}
             drawnBalls={gameState.drawnBalls}
@@ -393,6 +449,7 @@ const App: React.FC = () => {
             onDownloadCard={handleDownloadCard}
             onEditParticipant={handleEditParticipant}
             onDeleteParticipant={handleDeleteParticipant}
+            currentPattern={gameState.selectedPattern}
           />
         </section>
 

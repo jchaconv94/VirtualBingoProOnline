@@ -1,6 +1,8 @@
+
 import React from 'react';
-import { BingoCard as BingoCardType } from '../types.ts';
+import { BingoCard as BingoCardType, PatternKey } from '../types.ts';
 import { Download, Trash2, Star } from 'lucide-react';
+import { WIN_PATTERNS } from '../utils/helpers.ts';
 
 interface Props {
   card: BingoCardType;
@@ -8,13 +10,27 @@ interface Props {
   onDelete: (id: string) => void;
   onDownload: (id: string) => void;
   isCompact?: boolean;
+  currentPattern?: PatternKey; // Optional, defaults to FULL if not provided
 }
 
-const BingoCard: React.FC<Props> = ({ card, drawnBalls, onDelete, onDownload, isCompact = false }) => {
-  // Filter out the 0 (center) to check matches correctly
-  const numbersOnly = card.numbers.filter(n => n !== 0);
-  const matches = numbersOnly.filter(n => drawnBalls.includes(n));
-  const isWinner = matches.length === 24; // 24 valid numbers matched
+const BingoCard: React.FC<Props> = ({ card, drawnBalls, onDelete, onDownload, isCompact = false, currentPattern = 'FULL' }) => {
+  
+  const patternIndices = WIN_PATTERNS[currentPattern].indices;
+
+  // Calculate if this card is a winner based on the pattern
+  const isWinner = patternIndices.every(idx => {
+    const val = card.numbers[idx];
+    return val === 0 || drawnBalls.includes(val);
+  });
+
+  // Calculate progress for UI
+  const matchesCount = patternIndices.filter(idx => {
+    const val = card.numbers[idx];
+    return val !== 0 && drawnBalls.includes(val);
+  }).length;
+  
+  // Total required excluding the free space (0) if it's part of the pattern
+  const totalRequired = patternIndices.filter(idx => card.numbers[idx] !== 0).length;
 
   // Columns headers
   const headers = ['B', 'I', 'N', 'G', 'O'];
@@ -60,16 +76,43 @@ const BingoCard: React.FC<Props> = ({ card, drawnBalls, onDelete, onDownload, is
           {card.numbers.map((number, index) => {
             const isCenter = index === 12;
             const isMarked = drawnBalls.includes(number);
+            const isRequiredByPattern = patternIndices.includes(index);
             
+            // Styles calculation
+            let bgClass = 'bg-slate-900/40 text-slate-500'; // Default dim
+            let scaleClass = '';
+
             if (isCenter) {
+              // Center is always highlighted if it's part of the pattern, or just standard star if not
                return (
                 <div
                   key={index}
-                  className="aspect-square flex flex-col items-center justify-center rounded font-bold bg-gradient-to-br from-amber-400 to-orange-500 text-amber-950 shadow-inner"
+                  className={`aspect-square flex flex-col items-center justify-center rounded font-bold shadow-inner
+                     ${isRequiredByPattern 
+                        ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-amber-950 ring-2 ring-amber-500/50' 
+                        : 'bg-slate-800 text-slate-600 opacity-50' 
+                     }
+                  `}
                 >
-                  <Star size={isCompact ? 16 : 22} fill="currentColor" className="opacity-75" />
+                  <Star size={isCompact ? 16 : 22} fill="currentColor" className={isRequiredByPattern ? "opacity-75" : "opacity-30"} />
                 </div>
                );
+            }
+
+            if (isRequiredByPattern) {
+               if (isMarked) {
+                  // Marked and Required -> Green/Active
+                  bgClass = 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-900/50 z-10 ring-1 ring-emerald-400/50';
+                  scaleClass = 'scale-105';
+               } else {
+                  // Required but Not Marked -> Waiting state (distinct from non-required)
+                  bgClass = 'bg-slate-800 text-slate-200 border border-slate-600';
+               }
+            } else {
+                if (isMarked) {
+                  // Marked but NOT Required -> Just visual noise, dim it out but show it was called
+                   bgClass = 'bg-slate-800/80 text-slate-400 opacity-60';
+                }
             }
 
             return (
@@ -77,10 +120,7 @@ const BingoCard: React.FC<Props> = ({ card, drawnBalls, onDelete, onDownload, is
                 key={index}
                 className={`
                   aspect-square flex items-center justify-center rounded font-bold transition-all duration-500
-                  ${isMarked 
-                    ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-900/50 scale-105 z-10' 
-                    : 'bg-slate-900/80 text-slate-300'
-                  }
+                  ${bgClass} ${scaleClass}
                 `}
               >
                 {number}
@@ -90,8 +130,9 @@ const BingoCard: React.FC<Props> = ({ card, drawnBalls, onDelete, onDownload, is
         </div>
       </div>
       
-      <div className="px-3 py-1 text-[10px] text-slate-500 text-right bg-slate-950/30">
-        {matches.length}/24 aciertos
+      <div className="px-3 py-1 text-[10px] text-slate-500 text-right bg-slate-950/30 flex justify-between items-center">
+         <span className="text-slate-600 uppercase tracking-wider text-[9px]">{WIN_PATTERNS[currentPattern].label}</span>
+         <span>{matchesCount}/{totalRequired} aciertos</span>
       </div>
     </div>
   );

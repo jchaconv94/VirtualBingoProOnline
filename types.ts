@@ -1,3 +1,4 @@
+
 export interface BingoCard {
   id: string;
   numbers: number[]; // Array of 25 items (index 12 is 0/placeholder)
@@ -20,10 +21,35 @@ export interface Winner {
   winningNumber: number;
 }
 
+export type PatternKey = 
+  | 'FULL' 
+  | 'X' 
+  | 'L' 
+  | 'FRAME' 
+  | 'CORNERS' 
+  | 'LETTER_E' 
+  | 'LETTER_H' 
+  | 'CENTER'
+  | 'LETTER_N'
+  | 'LETTER_I'
+  | 'LETTER_Z'
+  | 'FRAME_SMALL'
+  | 'CROSS'
+  | 'DIAGONAL'
+  | 'DIAMOND'
+  | 'ARROW';
+
+export interface WinPattern {
+  key: PatternKey;
+  label: string;
+  indices: number[]; // Indices 0-24 required to win
+}
+
 export interface GameState {
   drawnBalls: number[];
   history: string[];
   lastCardSequence: number;
+  selectedPattern: PatternKey;
 }
 
 export const TOTAL_BALLS = 75;

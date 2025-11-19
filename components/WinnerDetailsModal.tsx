@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { X, User, Calendar, Hash, Trophy } from 'lucide-react';
-import { Participant, Winner, BingoCard as BingoCardType } from '../types.ts';
+import { Participant, Winner, BingoCard as BingoCardType, PatternKey } from '../types.ts';
 import BingoCard from './BingoCard.tsx';
 
 interface Props {
@@ -9,9 +10,10 @@ interface Props {
   card: BingoCardType;
   drawnBalls: number[];
   onClose: () => void;
+  currentPattern?: PatternKey;
 }
 
-const WinnerDetailsModal: React.FC<Props> = ({ winner, participant, card, drawnBalls, onClose }) => {
+const WinnerDetailsModal: React.FC<Props> = ({ winner, participant, card, drawnBalls, onClose, currentPattern = 'FULL' }) => {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
@@ -97,6 +99,7 @@ const WinnerDetailsModal: React.FC<Props> = ({ winner, participant, card, drawnB
                   onDelete={() => {}} // No action needed in view mode
                   onDownload={() => {}} // No action needed in view mode
                   isCompact={false}
+                  currentPattern={currentPattern}
                 />
               </div>
             </div>

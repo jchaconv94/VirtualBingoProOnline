@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Search, Users, Medal, Ticket, Edit2, Trash2, Save, X, Eye } from 'lucide-react';
-import { Participant, Winner, BingoCard as BingoCardType } from '../types.ts';
+import { Participant, Winner, BingoCard as BingoCardType, PatternKey } from '../types.ts';
 import BingoCard from './BingoCard.tsx';
 import WinnerDetailsModal from './WinnerDetailsModal.tsx';
 
@@ -13,6 +14,7 @@ interface Props {
   onDownloadCard: (participant: Participant, cardId: string) => void;
   onEditParticipant: (id: string, data: { name: string, surname: string, dni: string, phone: string }) => void;
   onDeleteParticipant: (id: string) => void;
+  currentPattern: PatternKey;
 }
 
 const ParticipantsPanel: React.FC<Props> = ({ 
@@ -23,7 +25,8 @@ const ParticipantsPanel: React.FC<Props> = ({
   onDeleteCard,
   onDownloadCard,
   onEditParticipant,
-  onDeleteParticipant
+  onDeleteParticipant,
+  currentPattern
 }) => {
   const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -86,6 +89,7 @@ const ParticipantsPanel: React.FC<Props> = ({
           card={viewingWinnerData.card}
           drawnBalls={drawnBalls}
           onClose={() => setViewingWinnerData(null)}
+          currentPattern={currentPattern}
         />
       )}
 
@@ -234,6 +238,7 @@ const ParticipantsPanel: React.FC<Props> = ({
                     onDelete={(cid) => onDeleteCard(p.id, cid)}
                     onDownload={(cid) => onDownloadCard(p, cid)}
                     isCompact
+                    currentPattern={currentPattern}
                   />
                 ))}
               </div>

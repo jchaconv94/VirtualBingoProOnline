@@ -1,4 +1,5 @@
-import { Participant, Winner } from '../types.ts';
+
+import { Participant, Winner, WinPattern, PatternKey } from '../types.ts';
 
 /**
  * Generates a classic 5x5 Bingo card distribution.
@@ -43,20 +44,133 @@ export const generateId = (prefix: string = ''): string => {
   return `${prefix}${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(-4)}`.toUpperCase();
 };
 
-export const checkWinners = (participants: Participant[], drawnBalls: number[], existingWinners: Winner[]): Winner[] => {
+// --- WINNING PATTERNS DEFINITION ---
+
+const ALL_INDICES = Array.from({ length: 25 }, (_, i) => i);
+const ROW_0 = [0, 1, 2, 3, 4];
+const ROW_2 = [10, 11, 12, 13, 14];
+const ROW_4 = [20, 21, 22, 23, 24];
+const COL_0 = [0, 5, 10, 15, 20];
+const COL_2 = [2, 7, 12, 17, 22]; // Center Column
+const COL_4 = [4, 9, 14, 19, 24];
+const DIAG_MAIN = [0, 6, 12, 18, 24]; // TL to BR
+const DIAG_ANTI = [4, 8, 12, 16, 20]; // TR to BL
+
+export const WIN_PATTERNS: Record<PatternKey, WinPattern> = {
+  FULL: {
+    key: 'FULL',
+    label: 'Cartón Lleno (Apagón)',
+    indices: ALL_INDICES
+  },
+  X: {
+    key: 'X',
+    label: 'Letra X',
+    indices: [0, 6, 12, 18, 24, 4, 8, 16, 20] // 12 is center (shared)
+  },
+  L: {
+    key: 'L',
+    label: 'Letra L',
+    indices: [...COL_0, ...ROW_4] // Left Column + Bottom Row
+  },
+  FRAME: {
+    key: 'FRAME',
+    label: 'Marco / Cuadrado',
+    indices: [...new Set([...ROW_0, ...ROW_4, ...COL_0, ...COL_4])]
+  },
+  CORNERS: {
+    key: 'CORNERS',
+    label: '4 Esquinas',
+    indices: [0, 4, 20, 24]
+  },
+  LETTER_E: {
+    key: 'LETTER_E',
+    label: 'Letra E',
+    indices: [...new Set([...COL_0, ...ROW_0, ...ROW_2, ...ROW_4])]
+  },
+  LETTER_H: {
+    key: 'LETTER_H',
+    label: 'Letra H',
+    indices: [...new Set([...COL_0, ...COL_4, ...ROW_2])]
+  },
+  CENTER: {
+    key: 'CENTER',
+    label: 'Cruz Pequeña (Centro)',
+    indices: [7, 11, 12, 13, 17]
+  },
+  // --- NEW PATTERNS ---
+  LETTER_N: {
+    key: 'LETTER_N',
+    label: 'Letra N',
+    indices: [...new Set([...COL_0, ...COL_4, ...DIAG_MAIN])]
+  },
+  LETTER_I: {
+    key: 'LETTER_I',
+    label: 'Letra I',
+    indices: [...new Set([...ROW_0, ...ROW_4, ...COL_2])]
+  },
+  LETTER_Z: {
+    key: 'LETTER_Z',
+    label: 'Letra Z',
+    indices: [...new Set([...ROW_0, ...ROW_4, ...DIAG_ANTI])]
+  },
+  FRAME_SMALL: {
+    key: 'FRAME_SMALL',
+    label: 'Marco Pequeño',
+    indices: [6, 7, 8, 11, 13, 16, 17, 18]
+  },
+  CROSS: {
+    key: 'CROSS',
+    label: 'Cruz Grande',
+    indices: [...new Set([...ROW_2, ...COL_2])]
+  },
+  DIAGONAL: {
+    key: 'DIAGONAL',
+    label: 'Diagonal Principal',
+    indices: DIAG_MAIN
+  },
+  ARROW: {
+    key: 'ARROW',
+    label: 'Flecha Diagonal',
+    // Diagonal (BL to TR) + arrow head at top right
+    indices: [20, 16, 12, 8, 4, 3, 9]
+  },
+  DIAMOND: {
+    key: 'DIAMOND',
+    label: 'Diamante',
+    indices: [2, 6, 8, 10, 14, 16, 18, 22]
+  }
+};
+
+export const checkWinners = (
+  participants: Participant[], 
+  drawnBalls: number[], 
+  existingWinners: Winner[],
+  patternKey: PatternKey
+): Winner[] => {
   const newWinners: Winner[] = [];
   
+  // Get the required indices for the current pattern
+  const patternIndices = WIN_PATTERNS[patternKey].indices;
+
   // La bolilla ganadora es la última que se añadió a la lista
   const winningBall = drawnBalls[drawnBalls.length - 1];
   
   participants.forEach(p => {
     p.cards.forEach(c => {
-      // Filter out the center zero (0) and check if remaining numbers are in drawnBalls
-      const numbersToCheck = c.numbers.filter(n => n !== 0);
-      const hasAll = numbersToCheck.every(n => drawnBalls.includes(n));
       
-      if (hasAll) {
-        // Check if already recorded as winner
+      // Check ONLY the indices defined by the pattern
+      const isWinner = patternIndices.every(index => {
+        const numberAtPos = c.numbers[index];
+        // It matches if:
+        // 1. It is the free space (0) - AND the pattern requires index 12 (implied in logic, 0 is always matched)
+        // 2. OR the number has been drawn
+        if (numberAtPos === 0) return true; 
+        return drawnBalls.includes(numberAtPos);
+      });
+      
+      if (isWinner) {
+        // Check if already recorded as winner for THIS card (generic check, might need refinement if playing multiple patterns sequentially)
+        // For now, we assume one winner entry per card per game.
         const isAlreadyWinner = existingWinners.some(w => w.cardId === c.id);
         
         if (!isAlreadyWinner) {
