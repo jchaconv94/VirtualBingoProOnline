@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, User, Ticket, Phone, CreditCard, Trash2, Edit2, Plus, Hash, Fingerprint, Save, XCircle } from 'lucide-react';
+import { X, User, Ticket, Phone, CreditCard, Trash2, Edit2, Plus, Hash, Fingerprint, Save, XCircle, MessageCircle, FileText } from 'lucide-react';
 import { Participant, PatternKey } from '../types.ts';
 import BingoCard from './BingoCard.tsx';
 
@@ -14,6 +14,8 @@ interface Props {
   onDelete: () => void;
   onDeleteCard: (participantId: string, cardId: string) => void;
   onDownloadCard: (participant: Participant, cardId: string) => void;
+  onShareCard?: (cardId: string) => void;
+  onShareAllCards?: () => void;
 }
 
 const ParticipantDetailsModal: React.FC<Props> = ({ 
@@ -25,7 +27,9 @@ const ParticipantDetailsModal: React.FC<Props> = ({
   onSave,
   onDelete,
   onDeleteCard,
-  onDownloadCard
+  onDownloadCard,
+  onShareCard,
+  onShareAllCards
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
@@ -196,7 +200,7 @@ const ParticipantDetailsModal: React.FC<Props> = ({
                 </button>
               </div>
            ) : (
-              <div className="grid grid-cols-3 gap-4 mb-8">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                   <button 
                     onClick={onAddCard}
                     className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 hover:border-emerald-500/30 rounded-xl py-3 transition-all group shadow-lg shadow-black/20"
@@ -206,6 +210,18 @@ const ParticipantDetailsModal: React.FC<Props> = ({
                     </div>
                     <span className="font-bold text-sm">Agregar Cartón</span>
                   </button>
+
+                  {participant.phone && participant.cards.length > 0 && onShareAllCards && (
+                     <button 
+                        onClick={onShareAllCards}
+                        className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-emerald-950/50 text-emerald-500 border border-slate-700 hover:border-emerald-500/30 rounded-xl py-3 transition-all group shadow-lg shadow-black/20"
+                     >
+                        <div className="bg-emerald-500/10 p-1.5 rounded-lg group-hover:bg-emerald-500/20 transition-colors">
+                           <FileText size={18} />
+                        </div>
+                        <span className="font-bold text-sm">Enviar PDF</span>
+                     </button>
+                  )}
 
                   <button 
                     onClick={() => setIsEditing(true)}
@@ -250,6 +266,8 @@ const ParticipantDetailsModal: React.FC<Props> = ({
                             drawnBalls={drawnBalls}
                             onDelete={(cid) => onDeleteCard(participant.id, cid)}
                             onDownload={(cid) => onDownloadCard(participant, cid)}
+                            onShare={onShareCard}
+                            hasPhone={!!participant.phone}
                             isCompact={true}
                             currentPattern={currentPattern}
                             readOnly={false}

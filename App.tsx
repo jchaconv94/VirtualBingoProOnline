@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { Participant, GameState, Winner, TOTAL_BALLS, NUMBERS_PER_CARD, BingoCard, PatternKey, Prize } from './types.ts';
 import { generateBingoCardNumbers, generateId, checkWinners, WIN_PATTERNS } from './utils/helpers.ts';
-import { exportToExcel, parseExcel, downloadCardImage, downloadAllCardsZip } from './services/exportService.ts';
+import { exportToExcel, parseExcel, downloadCardImage, downloadAllCardsZip, generateBingoCardsPDF } from './services/exportService.ts';
 import RegistrationPanel from './components/RegistrationPanel.tsx';
 import GamePanel from './components/GamePanel.tsx';
 import ParticipantsPanel from './components/ParticipantsPanel.tsx';
@@ -11,7 +11,7 @@ import WinnerModal from './components/WinnerModal.tsx';
 import WinnerDetailsModal from './components/WinnerDetailsModal.tsx';
 import PrizesPanel from './components/PrizesPanel.tsx';
 import EditTitleModal from './components/EditTitleModal.tsx';
-import { Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Edit } from 'lucide-react';
+import { Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Edit, X } from 'lucide-react';
 
 // LocalStorage Keys
 const LS_KEYS = {
@@ -83,7 +83,7 @@ const App: React.FC = () => {
   } | null>(null);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(false); // Default closed for floating behavior
 
   // --- Persistence (Solo Guardar) ---
   // Como el estado inicial YA tiene los datos cargados, estos efectos no sobrescribirán con vacíos.
@@ -396,9 +396,86 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDownloadCard = (p: Participant, cid: string) => {
+  const handleDownloadCard = async (p: Participant, cid: string) => {
     const card = p.cards.find(c => c.id === cid);
-    if (card) downloadCardImage(p, card, bingoTitle, bingoSubtitle);
+    if (!card) return;
+
+    try {
+      // Use Image generation for single card direct download (PNG)
+      await downloadCardImage(p, card, bingoTitle, bingoSubtitle);
+    } catch (e) {
+      console.error(e);
+      alert("Error al generar la imagen PNG");
+    }
+  };
+
+  // Centralized WhatsApp Opener to ensure tab reuse
+  const openWhatsApp = (phone: string, text: string) => {
+    // Clean phone number
+    const cleanPhone = phone.replace(/\D/g, '');
+    const url = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${text}`;
+    // Using a specific name 'whatsapp_bingo_app' tells the browser to try reusing the window
+    // if it was opened by this script.
+    const win = window.open(url, 'whatsapp_bingo_app');
+    if (win) {
+      win.focus();
+    }
+  };
+
+  const handleShareCard = async (p: Participant, cid: string) => {
+    if (!p.phone) return;
+    
+    const card = p.cards.find(c => c.id === cid);
+    if (!card) return;
+
+    addLog(`Generando PDF del cartón ${cid} para ${p.name}...`);
+
+    // 1. Descargar PDF localmente (replaces the old PNG logic)
+    try {
+        await generateBingoCardsPDF(p, bingoTitle, bingoSubtitle, cid);
+        
+        // 2. Mensaje con salto de línea explícito (\n\n)
+        const message = `Hola ${p.name.toUpperCase()}, te adjunto el archivo PDF con tu cartón de Bingo Virtual #${card.id}.\n\n¡Imprímelo o juega desde el celular! 📄\n\n¡Mucha Suerte! 🎱🍀`;
+        const text = encodeURIComponent(message);
+        
+        // 3. Abrir usando el helper
+        // Small delay to allow download to start
+        setTimeout(() => {
+           openWhatsApp(p.phone!, text);
+        }, 1000);
+    } catch (e) {
+        console.error(e);
+        alert("Error al generar el PDF");
+    }
+  };
+
+  const handleShareAllCards = async (p: Participant) => {
+    if (!p.phone || p.cards.length === 0) return;
+
+    // Use a confirm if many cards to prevent accidental browser freezing
+    if (p.cards.length > 10 && !window.confirm(`¿Generar PDF con los ${p.cards.length} cartones de ${p.name}? Esto puede tomar unos segundos.`)) return;
+
+    addLog(`Generando PDF de cartones para ${p.name}...`);
+
+    // 1. Generate PDF and trigger download
+    // We cannot attach files via WhatsApp Web URL scheme, so we download it for the user
+    // and tell them to attach it.
+    try {
+      await generateBingoCardsPDF(p, bingoTitle, bingoSubtitle);
+      
+      // 2. Open WhatsApp with instructions
+      const message = `Hola ${p.name.toUpperCase()}, te adjunto el archivo PDF con tus ${p.cards.length} cartones de Bingo Virtual.\n\n¡Imprímelos o juega desde el celular! 📄\n\n¡Mucha suerte! 🎱🍀`;
+      const text = encodeURIComponent(message);
+      
+      // Small delay to allow the download to start visibly
+      setTimeout(() => {
+         openWhatsApp(p.phone!, text);
+      }, 1000);
+
+    } catch (error) {
+      console.error("Error generating PDF", error);
+      alert("Hubo un error al generar el PDF. Por favor intenta de nuevo.");
+    }
   };
 
   // --- Prizes Handlers ---
@@ -428,6 +505,56 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
       
+      {/* --- FLOATING SIDEBAR (DRAWER) --- */}
+      {/* Backdrop */}
+      <div 
+        className={`fixed inset-0 bg-black/70 backdrop-blur-[2px] z-[90] transition-opacity duration-300 ${showSidebar ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        onClick={() => setShowSidebar(false)}
+      />
+
+      {/* Sidebar Content */}
+      <aside 
+        className={`fixed top-0 left-0 h-full w-[320px] bg-slate-900/95 border-r border-slate-800 shadow-2xl z-[100] transform transition-transform duration-300 ease-out overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4 ${showSidebar ? 'translate-x-0' : '-translate-x-full'}`}
+      >
+         <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-800/50">
+            <h3 className="font-bold text-white flex items-center gap-2">
+               <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+               Menú de Gestión
+            </h3>
+            <button 
+              onClick={() => setShowSidebar(false)}
+              className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
+            >
+              <X size={20} />
+            </button>
+         </div>
+
+         <RegistrationPanel 
+            onRegister={handleRegister}
+            onImport={handleImport}
+            onExport={() => exportToExcel(participants)}
+            onGenerateAllImages={() => downloadAllCardsZip(participants, bingoTitle, bingoSubtitle)}
+            totalParticipants={participants.length}
+          />
+          
+          <PrizesPanel 
+            prizes={prizes}
+            onAddPrize={handleAddPrize}
+            onEditPrize={handleEditPrize}
+            onRemovePrize={handleRemovePrize}
+            onTogglePrize={handleTogglePrize}
+          />
+          
+          {/* Instructions Mini Panel */}
+          <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-3 text-[11px] text-slate-500 mt-auto">
+            <h4 className="font-bold text-slate-400 mb-1 text-[12px]">Atajos rápidos</h4>
+            <ul className="list-disc list-inside space-y-0.5">
+              <li>Usa Excel para carga masiva.</li>
+              <li>El sorteo guarda estado automáticamente.</li>
+            </ul>
+          </div>
+      </aside>
+
       {showTitleModal && (
         <EditTitleModal
           currentTitle={bingoTitle}
@@ -461,12 +588,22 @@ const App: React.FC = () => {
           currentPattern={gameState.selectedPattern}
           onDeleteCard={handleDeleteCard}
           onDownloadCard={handleDownloadCard}
+          onShareCard={(cardId) => handleShareCard(viewingDetailsData.participant, cardId)}
         />
       )}
 
       {/* Header */}
       <header className="bg-slate-900 border-b border-slate-800 py-3 px-6 flex items-center justify-between shadow-lg sticky top-0 z-20 h-14">
         <div className="flex items-center gap-4">
+           {/* Menu Toggle Button moved here for better UX */}
+           <button 
+               onClick={() => setShowSidebar(true)}
+               className={`p-1.5 rounded-lg transition-colors border border-slate-700 bg-slate-800 text-cyan-400 hover:text-white hover:border-cyan-500/50`}
+               title="Abrir Panel de Registro"
+             >
+               <PanelLeftOpen size={20} />
+             </button>
+
           <div className="flex flex-col">
             <h1 className="text-xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-600 leading-none uppercase">
               {bingoTitle}
@@ -492,14 +629,6 @@ const App: React.FC = () => {
              </button>
 
              <button 
-               onClick={() => setShowSidebar(!showSidebar)}
-               className={`p-1.5 rounded-lg transition-colors border border-slate-700 ${showSidebar ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-cyan-900/30 text-cyan-400 border-cyan-800'}`}
-               title={showSidebar ? "Ocultar Panel de Registro" : "Mostrar Panel de Registro"}
-             >
-               {showSidebar ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
-             </button>
-
-             <button 
                onClick={toggleFullScreen}
                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700"
                title={isFullscreen ? "Salir de Pantalla Completa" : "Pantalla Completa"}
@@ -511,45 +640,11 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Layout 
-          - Adjusted grid columns to increase Participants Panel width for 1366px and larger screens
+          - ALWAYS use the full width layout logic since sidebar is now floating
           - Sticky sidebars
       */}
-      <main className={`flex-1 p-4 max-w-[1920px] mx-auto w-full grid grid-cols-1 gap-4 transition-all duration-300 items-start ${
-        showSidebar 
-          ? 'xl:grid-cols-[240px_1fr_360px] 2xl:grid-cols-[320px_1fr_500px]' 
-          : 'xl:grid-cols-[1fr_360px] 2xl:grid-cols-[1fr_500px]'
-      }`}>
+      <main className="flex-1 p-4 max-w-[1920px] mx-auto w-full grid grid-cols-1 gap-4 transition-all duration-300 items-start xl:grid-cols-[1fr_360px] 2xl:grid-cols-[1fr_500px]">
         
-        {/* Left: Registration & Tools */}
-        {showSidebar && (
-          <section className="flex flex-col gap-4 animate-in slide-in-from-left duration-300 fade-in xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto custom-scrollbar pr-1">
-            <RegistrationPanel 
-              onRegister={handleRegister}
-              onImport={handleImport}
-              onExport={() => exportToExcel(participants)}
-              onGenerateAllImages={() => downloadAllCardsZip(participants, bingoTitle, bingoSubtitle)}
-              totalParticipants={participants.length}
-            />
-            
-            <PrizesPanel 
-              prizes={prizes}
-              onAddPrize={handleAddPrize}
-              onEditPrize={handleEditPrize}
-              onRemovePrize={handleRemovePrize}
-              onTogglePrize={handleTogglePrize}
-            />
-            
-            {/* Instructions Mini Panel */}
-            <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-3 text-[11px] text-slate-500">
-              <h4 className="font-bold text-slate-400 mb-1 text-[12px]">Atajos rápidos</h4>
-              <ul className="list-disc list-inside space-y-0.5">
-                <li>Usa Excel para carga masiva.</li>
-                <li>El sorteo guarda estado automáticamente.</li>
-              </ul>
-            </div>
-          </section>
-        )}
-
         {/* Center: Game */}
         <section className="flex flex-col gap-4">
           <GamePanel 
@@ -580,6 +675,8 @@ const App: React.FC = () => {
             onDeleteParticipant={handleDeleteParticipant}
             onDeleteAllParticipants={handleDeleteAllParticipants}
             currentPattern={gameState.selectedPattern}
+            onShareCard={handleShareCard}
+            onShareAllCards={handleShareAllCards}
           />
         </section>
 

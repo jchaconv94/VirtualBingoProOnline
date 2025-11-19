@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Search, Users, Medal, Ticket, Edit2, Trash2, Save, X, Eye, EyeOff, CreditCard, ChevronDown, ChevronUp, ScanEye, Phone, Fingerprint } from 'lucide-react';
+import { Search, Users, Medal, Ticket, Edit2, Trash2, Save, X, Eye, EyeOff, CreditCard, ChevronDown, ChevronUp, ScanEye, Phone, Fingerprint, MessageCircle, FileText } from 'lucide-react';
 import { Participant, Winner, BingoCard as BingoCardType, PatternKey } from '../types.ts';
 import BingoCard from './BingoCard.tsx';
 import WinnerDetailsModal from './WinnerDetailsModal.tsx';
@@ -17,6 +17,8 @@ interface Props {
   onDeleteParticipant: (id: string) => void;
   onDeleteAllParticipants: () => void;
   currentPattern: PatternKey;
+  onShareCard?: (participant: Participant, cardId: string) => void;
+  onShareAllCards?: (participant: Participant) => void;
 }
 
 const ParticipantsPanel: React.FC<Props> = ({ 
@@ -29,7 +31,9 @@ const ParticipantsPanel: React.FC<Props> = ({
   onEditParticipant,
   onDeleteParticipant,
   onDeleteAllParticipants,
-  currentPattern
+  currentPattern,
+  onShareCard,
+  onShareAllCards
 }) => {
   const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -124,6 +128,7 @@ const ParticipantsPanel: React.FC<Props> = ({
           currentPattern={currentPattern}
           onDeleteCard={onDeleteCard}
           onDownloadCard={onDownloadCard}
+          onShareCard={onShareCard ? (cardId) => onShareCard(viewingWinnerData.participant, cardId) : undefined}
         />
       )}
 
@@ -146,6 +151,8 @@ const ParticipantsPanel: React.FC<Props> = ({
           }}
           onDeleteCard={onDeleteCard}
           onDownloadCard={onDownloadCard}
+          onShareCard={onShareCard ? (cardId) => onShareCard(viewingParticipant, cardId) : undefined}
+          onShareAllCards={onShareAllCards ? () => onShareAllCards(viewingParticipant) : undefined}
         />
       )}
 
@@ -326,6 +333,16 @@ const ParticipantsPanel: React.FC<Props> = ({
                     </button>
 
                     <div className="flex items-center gap-0.5">
+                       {p.phone && p.cards.length > 0 && (
+                          <button 
+                            onClick={() => onShareAllCards && onShareAllCards(p)}
+                            className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-emerald-950/30 rounded transition-colors"
+                            title={`Enviar PDF con TODOS (${p.cards.length}) los cartones por WhatsApp`}
+                          >
+                            <FileText size={14} />
+                          </button>
+                       )}
+
                        <button 
                         onClick={() => setViewingParticipantId(p.id)}
                         className="p-1.5 text-slate-400 hover:text-cyan-400 hover:bg-cyan-950/30 rounded transition-colors"
@@ -374,6 +391,8 @@ const ParticipantsPanel: React.FC<Props> = ({
                         drawnBalls={drawnBalls}
                         onDelete={(cid) => onDeleteCard(p.id, cid)}
                         onDownload={(cid) => onDownloadCard(p, cid)}
+                        onShare={onShareCard ? (cid) => onShareCard(p, cid) : undefined}
+                        hasPhone={!!p.phone}
                         isCompact={true}
                         currentPattern={currentPattern}
                       />

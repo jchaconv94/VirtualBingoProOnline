@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import saveAs from 'file-saver';
 import html2canvas from 'html2canvas';
 import JSZip from 'jszip';
+import { jsPDF } from 'jspdf';
 import { Participant, BingoCard } from '../types.ts';
 
 // --- Excel Functions ---
@@ -120,15 +121,15 @@ export const parseExcel = async (file: File): Promise<Participant[]> => {
   });
 };
 
-// --- Image Generation Functions ---
+// --- Image & PDF Generation Functions ---
 
 const createTempCardElement = (participant: Participant, card: BingoCard, title: string, subtitle: string = ""): HTMLElement => {
   const container = document.createElement('div');
   Object.assign(container.style, {
     width: '600px',
     padding: '40px',
-    backgroundColor: '#f8fafc', // slate-50
-    color: '#0f172a', // slate-900
+    backgroundColor: '#ffffff', // Pure white for PDF
+    color: '#0f172a', 
     fontFamily: "'Inter', sans-serif",
     position: 'absolute',
     top: '-9999px',
@@ -137,8 +138,6 @@ const createTempCardElement = (participant: Participant, card: BingoCard, title:
   });
 
   // Header Section matching the "BINGO VIRTUAL" clean design
-  // Added subtitle logic below H1
-  // Adjusted font-size for title to 32px to accommodate longer titles better
   const header = `
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
       <div style="max-width: 75%;">
@@ -201,7 +200,6 @@ const createTempCardElement = (participant: Participant, card: BingoCard, title:
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
       `;
 
-      // Wrapper flex para centrar el contenido
       const contentWrapper = `display:flex; justify-content:center; align-items:center; height:100%; width: 100%;`;
 
       if (isCenter) {
@@ -237,7 +235,7 @@ export const downloadCardImage = async (participant: Participant, card: BingoCar
   const el = createTempCardElement(participant, card, title, subtitle);
   document.body.appendChild(el);
   try {
-    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#f8fafc' });
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
     const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
     if (blob) {
       saveAs(blob, `bingo_${participant.name.replace(/\s+/g,'_')}_${card.id}.png`);
@@ -256,7 +254,7 @@ export const downloadAllCardsZip = async (participants: Participant[], title: st
       const el = createTempCardElement(p, card, title, subtitle);
       document.body.appendChild(el);
       try {
-        const canvas = await html2canvas(el, { scale: 1.5, backgroundColor: '#f8fafc' });
+        const canvas = await html2canvas(el, { scale: 1.5, backgroundColor: '#ffffff' });
         const dataUrl = canvas.toDataURL('image/png');
         const base64 = dataUrl.split(',')[1];
         folder?.file(`${p.name.replace(/\s+/g,'_')}_${card.id}.png`, base64, { base64: true });
@@ -268,4 +266,104 @@ export const downloadAllCardsZip = async (participants: Participant[], title: st
 
   const content = await zip.generateAsync({ type: "blob" });
   saveAs(content, "todos_cartones.zip");
+};
+
+export const generateBingoCardsPDF = async (participant: Participant, title: string, subtitle: string = "", specificCardId?: string) => {
+  // Initialize PDF in A4 Portrait (mm)
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // A4 Dimensions: 210mm x 297mm
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const margin = 10;
+  const gap = 10;
+  
+  // Grid Calculations (2 columns, 2 rows)
+  const cardWidth = (pageWidth - (margin * 2) - gap) / 2; // approx 90mm
+  const cardHeight = (pageHeight - (margin * 2) - gap) / 2; // approx 133.5mm
+
+  // Positions for 4 cards
+  const positions = [
+    { x: margin, y: margin },                                   // Top-Left
+    { x: margin + cardWidth + gap, y: margin },                 // Top-Right
+    { x: margin, y: margin + cardHeight + gap },                // Bottom-Left
+    { x: margin + cardWidth + gap, y: margin + cardHeight + gap } // Bottom-Right
+  ];
+
+  const cardsToProcess = specificCardId 
+    ? participant.cards.filter(c => c.id === specificCardId)
+    : participant.cards;
+
+  if (cardsToProcess.length === 0) return;
+
+  for (let i = 0; i < cardsToProcess.length; i++) {
+    const card = cardsToProcess[i];
+    const posIndex = i % 4;
+
+    // Add new page if we filled the previous 4 slots
+    if (i > 0 && posIndex === 0) {
+      doc.addPage();
+    }
+
+    // Render card to image
+    const el = createTempCardElement(participant, card, title, subtitle);
+    document.body.appendChild(el);
+    
+    try {
+      // Use reasonable scale for PDF quality
+      const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/jpeg', 0.9); // slightly compressed JPEG for smaller PDF size
+
+      let pos = positions[posIndex];
+      
+      // If generating a single specific card, center it on the page for better presentation
+      if (specificCardId && cardsToProcess.length === 1) {
+        pos = {
+            x: (pageWidth - cardWidth) / 2,
+            y: (pageHeight - cardHeight) / 2
+        };
+      }
+      
+      // Calculate aspect ratio to fit within the grid cell
+      const imgProps = doc.getImageProperties(imgData);
+      const pdfRatio = cardWidth / cardHeight;
+      const imgRatio = imgProps.width / imgProps.height;
+
+      let w = cardWidth;
+      let h = cardHeight;
+
+      // Fit contain logic
+      if (imgRatio > pdfRatio) {
+        h = w / imgRatio;
+      } else {
+        w = h * imgRatio;
+      }
+      
+      // Center in cell (or page if overridden above)
+      const xCentered = pos.x + (cardWidth - w) / 2;
+      const yCentered = pos.y + (cardHeight - h) / 2;
+
+      doc.addImage(imgData, 'JPEG', xCentered, yCentered, w, h);
+      
+      // Optional: Add a light border around the card area for cutting reference
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(xCentered, yCentered, w, h);
+
+    } finally {
+      document.body.removeChild(el);
+    }
+  }
+
+  // Save the PDF
+  let fileName = `Cartones_Bingo_${participant.name.replace(/\s+/g, '_')}.pdf`;
+  if (specificCardId) {
+      fileName = `Bingo_${participant.name.replace(/\s+/g, '_')}_${specificCardId}.pdf`;
+  }
+  doc.save(fileName);
+  
+  return fileName;
 };

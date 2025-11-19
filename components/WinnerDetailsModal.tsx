@@ -13,6 +13,7 @@ interface Props {
   currentPattern?: PatternKey;
   onDeleteCard: (participantId: string, cardId: string) => void;
   onDownloadCard: (participant: Participant, cardId: string) => void;
+  onShareCard?: (cardId: string) => void;
 }
 
 const WinnerDetailsModal: React.FC<Props> = ({ 
@@ -23,7 +24,8 @@ const WinnerDetailsModal: React.FC<Props> = ({
   onClose, 
   currentPattern = 'FULL',
   onDeleteCard,
-  onDownloadCard
+  onDownloadCard,
+  onShareCard
 }) => {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -108,6 +110,8 @@ const WinnerDetailsModal: React.FC<Props> = ({
                   drawnBalls={drawnBalls}
                   onDelete={(cardId) => onDeleteCard(participant.id, cardId)} 
                   onDownload={(cardId) => onDownloadCard(participant, cardId)}
+                  onShare={onShareCard}
+                  hasPhone={!!participant.phone}
                   isCompact={false}
                   currentPattern={currentPattern}
                   readOnly={false} 

@@ -60,5 +60,5 @@ export interface GameState {
 }
 
 export const TOTAL_BALLS = 75;
-export const CARDS_PER_USER_LIMIT = 10;
+export const CARDS_PER_USER_LIMIT = 100;
 export const NUMBERS_PER_CARD = 24; // 24 numbers + 1 free space

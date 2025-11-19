@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { BingoCard as BingoCardType, PatternKey } from '../types.ts';
-import { Download, Trash2, Star } from 'lucide-react';
+import { Download, Trash2, Star, MessageCircle } from 'lucide-react';
 import { WIN_PATTERNS } from '../utils/helpers.ts';
 
 interface Props {
@@ -9,6 +9,8 @@ interface Props {
   drawnBalls: number[];
   onDelete: (id: string) => void;
   onDownload: (id: string) => void;
+  onShare?: (id: string) => void;
+  hasPhone?: boolean;
   isCompact?: boolean;
   currentPattern?: PatternKey; // Optional, defaults to FULL if not provided
   readOnly?: boolean;
@@ -19,6 +21,8 @@ const BingoCard: React.FC<Props> = ({
   drawnBalls, 
   onDelete, 
   onDownload, 
+  onShare,
+  hasPhone = false,
   isCompact = false, 
   currentPattern = 'FULL',
   readOnly = false
@@ -57,6 +61,15 @@ const BingoCard: React.FC<Props> = ({
         
         {!readOnly && (
           <div className="flex gap-0.5">
+            {hasPhone && onShare && (
+               <button 
+                onClick={() => onShare(card.id)} 
+                className="p-1 rounded transition-colors text-slate-400 hover:text-emerald-400 hover:bg-emerald-950/50"
+                title="Enviar PDF a WhatsApp Web"
+              >
+                <MessageCircle size={isCompact ? 12 : 14} />
+              </button>
+            )}
             <button 
               onClick={() => onDownload(card.id)} 
               className={`p-1 rounded transition-colors ${

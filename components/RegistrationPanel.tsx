@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { UserPlus, Upload, Download, FileSpreadsheet, Image as ImageIcon, RefreshCw } from 'lucide-react';
+import { UserPlus, Upload, Download, FileSpreadsheet, Image as ImageIcon, RefreshCw, Ticket } from 'lucide-react';
 import { Participant } from '../types.ts';
 
 interface Props {
@@ -25,6 +25,9 @@ const RegistrationPanel: React.FC<Props> = ({ onRegister, onImport, onExport, on
     e.preventDefault();
     if (!formData.name || !formData.dni) return;
     
+    // Ensure at least 1 card
+    const count = Math.max(1, Math.floor(formData.cardsCount));
+
     onRegister(
       {
         name: formData.name,
@@ -32,7 +35,7 @@ const RegistrationPanel: React.FC<Props> = ({ onRegister, onImport, onExport, on
         dni: formData.dni,
         phone: formData.phone
       },
-      formData.cardsCount
+      count
     );
 
     setFormData({
@@ -102,15 +105,22 @@ const RegistrationPanel: React.FC<Props> = ({ onRegister, onImport, onExport, on
         </div>
 
         <div>
-          <select
-            value={formData.cardsCount}
-            onChange={e => setFormData({...formData, cardsCount: Number(e.target.value)})}
-            className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-xs text-white focus:ring-1 focus:ring-cyan-500 focus:border-transparent outline-none"
-          >
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
-              <option key={n} value={n}>{n} Cartón{n > 1 ? 'es' : ''}</option>
-            ))}
-          </select>
+           <div className="relative group">
+              <Ticket className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-500 transition-colors" size={12} />
+              <input
+                type="number"
+                min="1"
+                max="1000"
+                required
+                value={formData.cardsCount}
+                onChange={e => setFormData({...formData, cardsCount: Number(e.target.value)})}
+                className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 pl-7 text-xs text-white focus:ring-1 focus:ring-cyan-500 focus:border-transparent outline-none transition-all placeholder-slate-500"
+                placeholder="Cantidad de cartones"
+              />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-600 font-bold pointer-events-none">
+                 CARTONES
+              </span>
+           </div>
         </div>
 
         <button
