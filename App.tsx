@@ -9,7 +9,7 @@ import GamePanel from './components/GamePanel.tsx';
 import ParticipantsPanel from './components/ParticipantsPanel.tsx';
 import WinnerModal from './components/WinnerModal.tsx';
 import WinnerDetailsModal from './components/WinnerDetailsModal.tsx';
-import { Maximize2, Minimize2 } from 'lucide-react';
+import { Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 // LocalStorage Keys
 const LS_KEYS = {
@@ -64,6 +64,7 @@ const App: React.FC = () => {
   } | null>(null);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
 
   // --- Persistence (Solo Guardar) ---
   // Como el estado inicial YA tiene los datos cargados, estos efectos no sobrescribirán con vacíos.
@@ -395,39 +396,55 @@ const App: React.FC = () => {
              <div className="text-sm font-semibold text-slate-200">Ing. Jordan Chacón Villacís</div>
            </div>
 
-           <button 
-             onClick={toggleFullScreen}
-             className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700"
-             title={isFullscreen ? "Salir de Pantalla Completa" : "Pantalla Completa"}
-           >
-             {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
-           </button>
+           <div className="flex items-center gap-2">
+             <button 
+               onClick={() => setShowSidebar(!showSidebar)}
+               className={`p-2 rounded-lg transition-colors border border-slate-700 ${showSidebar ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-cyan-900/30 text-cyan-400 border-cyan-800'}`}
+               title={showSidebar ? "Ocultar Panel de Registro" : "Mostrar Panel de Registro"}
+             >
+               {showSidebar ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
+             </button>
+
+             <button 
+               onClick={toggleFullScreen}
+               className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700"
+               title={isFullscreen ? "Salir de Pantalla Completa" : "Pantalla Completa"}
+             >
+               {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+             </button>
+           </div>
         </div>
       </header>
 
       {/* Main Layout */}
-      <main className="flex-1 p-4 md:p-6 max-w-[1920px] mx-auto w-full grid grid-cols-1 xl:grid-cols-[350px_1fr_400px] gap-6">
+      <main className={`flex-1 p-4 md:p-6 max-w-[1920px] mx-auto w-full grid grid-cols-1 gap-6 transition-all duration-300 ${
+        showSidebar 
+          ? 'xl:grid-cols-[350px_1fr_400px]' 
+          : 'xl:grid-cols-[1fr_400px]'
+      }`}>
         
         {/* Left: Registration */}
-        <section className="flex flex-col gap-6">
-          <RegistrationPanel 
-            onRegister={handleRegister}
-            onImport={handleImport}
-            onExport={() => exportToExcel(participants)}
-            onGenerateAllImages={() => downloadAllCardsZip(participants)}
-            totalParticipants={participants.length}
-          />
-          
-          {/* Instructions Mini Panel */}
-          <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4 text-xs text-slate-500">
-            <h4 className="font-bold text-slate-400 mb-2">Atajos rápidos</h4>
-            <ul className="list-disc list-inside space-y-1">
-              <li>Usa Excel para carga masiva.</li>
-              <li>El sorteo guarda estado automáticamente.</li>
-              <li>Descarga cartones antes de empezar.</li>
-            </ul>
-          </div>
-        </section>
+        {showSidebar && (
+          <section className="flex flex-col gap-6 animate-in slide-in-from-left duration-300 fade-in">
+            <RegistrationPanel 
+              onRegister={handleRegister}
+              onImport={handleImport}
+              onExport={() => exportToExcel(participants)}
+              onGenerateAllImages={() => downloadAllCardsZip(participants)}
+              totalParticipants={participants.length}
+            />
+            
+            {/* Instructions Mini Panel */}
+            <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4 text-xs text-slate-500">
+              <h4 className="font-bold text-slate-400 mb-2">Atajos rápidos</h4>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Usa Excel para carga masiva.</li>
+                <li>El sorteo guarda estado automáticamente.</li>
+                <li>Descarga cartones antes de empezar.</li>
+              </ul>
+            </div>
+          </section>
+        )}
 
         {/* Center: Game */}
         <section className="h-auto min-h-[500px]">
@@ -443,7 +460,7 @@ const App: React.FC = () => {
         </section>
 
         {/* Right: Participants & Winners */}
-        <section className="h-[600px] xl:h-[calc(100vh-55px)]">
+        <section className="h-[600px] xl:h-[calc(100vh-155px)]">
           <ParticipantsPanel 
             participants={participants}
             drawnBalls={gameState.drawnBalls}
