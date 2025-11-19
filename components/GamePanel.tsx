@@ -106,13 +106,13 @@ const GamePanel: React.FC<Props> = ({ drawnBalls, onDrawBall, onReset, historyLo
           <h3 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
             <Hash size={16} /> Tablero de control
           </h3>
-          <div className="flex-1 flex flex-wrap content-start gap-1.5 overflow-y-auto pr-2 custom-scrollbar">
+          <div className="flex-1 flex flex-wrap content-start gap-1.5 overflow-y-auto pr-2 custom-scrollbar p-1">
             {drawnBalls.slice().reverse().map((n, i) => (
               <div 
                 key={i}
                 className={`
-                  w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0
-                  ${i === 0 ? 'bg-amber-500 text-slate-900 shadow-lg shadow-amber-500/20 ring-2 ring-amber-300' : 'bg-slate-800 text-slate-300 border border-slate-700'}
+                  w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 border
+                  ${i === 0 ? 'bg-amber-500 text-slate-900 border-amber-300 shadow-md shadow-amber-500/40' : 'bg-slate-800 text-slate-300 border-slate-700'}
                   animate-in fade-in zoom-in duration-300
                 `}
               >

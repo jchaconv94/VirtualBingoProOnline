@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Participant, GameState, Winner, TOTAL_BALLS, NUMBERS_PER_CARD } from './types.ts';
+import { Participant, GameState, Winner, TOTAL_BALLS, NUMBERS_PER_CARD, BingoCard } from './types.ts';
 import { generateUniqueRandomNumbers, generateId, checkWinners } from './utils/helpers.ts';
 import { exportToExcel, parseExcel, downloadCardImage, downloadAllCardsZip } from './services/exportService.ts';
 import RegistrationPanel from './components/RegistrationPanel.tsx';
 import GamePanel from './components/GamePanel.tsx';
 import ParticipantsPanel from './components/ParticipantsPanel.tsx';
 import WinnerModal from './components/WinnerModal.tsx';
+import WinnerDetailsModal from './components/WinnerDetailsModal.tsx';
 
 // LocalStorage Keys
 const LS_KEYS = {
@@ -46,9 +47,15 @@ const App: React.FC = () => {
     loadFromStorage(LS_KEYS.WINNERS, [])
   );
   
-  // Cola de visualización de ganadores (para mostrar popups uno por uno)
-  // Esta no necesita persistencia estricta, puede reiniciar vacía al recargar
-  const [winnerQueue, setWinnerQueue] = useState<Winner[]>([]);
+  // Estado para el modal de RESUMEN de ganadores (cuando salen nuevos ganadores)
+  const [currentBatchWinners, setCurrentBatchWinners] = useState<Winner[]>([]);
+
+  // Estado para ver el DETALLE de un ganador (desde el modal resumen o cualquier otro lado)
+  const [viewingDetailsData, setViewingDetailsData] = useState<{
+    winner: Winner;
+    participant: Participant;
+    card: BingoCard;
+  } | null>(null);
 
   // --- Persistence (Solo Guardar) ---
   // Como el estado inicial YA tiene los datos cargados, estos efectos no sobrescribirán con vacíos.
@@ -180,14 +187,14 @@ const App: React.FC = () => {
       p.cards.forEach(c => {
         if (c.numbers.includes(newBall)) {
           hitFound = true;
-          newLogs.push(`${time}: ${p.name} ${p.surname} marcó ${newBall} en ${c.id}`);
+          newLogs.push(`${time}: ${p.name} ${p.surname} marcó la bolilla N° ${newBall} en el cartón ${c.id}`);
         }
       });
     });
 
     // If no one had the ball, show generic message
     if (!hitFound) {
-      newLogs.push(`${time}: Bolilla N° ${newBall} salió`);
+      newLogs.push(`${time}: Bolilla N° ${newBall} fue sorteada`);
     }
 
     setGameState(prev => ({
@@ -204,24 +211,37 @@ const App: React.FC = () => {
     if (newWinners.length > 0) {
       setWinners(prev => [...prev, ...newWinners]);
       
-      // Agregar nuevos ganadores a la cola de visualización
-      setWinnerQueue(prev => [...prev, ...newWinners]);
+      // Show the summary modal with the batch of new winners
+      setCurrentBatchWinners(newWinners);
 
       newWinners.forEach(w => addLog(`🏆 BINGO! Ganador: ${w.participantName} (${w.cardId})`));
       
       // Confetti effect
       confetti({
-        particleCount: 150,
-        spread: 70,
+        particleCount: 200,
+        spread: 100,
         origin: { y: 0.6 },
         colors: ['#f59e0b', '#10b981', '#3b82f6']
       });
     }
   };
 
-  const handleNextWinner = () => {
-    // Remove the first winner from the queue
-    setWinnerQueue(prev => prev.slice(1));
+  const handleCloseWinnerModal = () => {
+    setCurrentBatchWinners([]);
+  };
+
+  const handleViewDetailsFromSummary = (winner: Winner) => {
+    const participant = participants.find(p => p.id === winner.participantId);
+    if (participant) {
+      const card = participant.cards.find(c => c.id === winner.cardId);
+      if (card) {
+        setViewingDetailsData({ winner, participant, card });
+      } else {
+        alert("Cartón no encontrado");
+      }
+    } else {
+      alert("Participante no encontrado");
+    }
   };
 
   const handleReset = () => {
@@ -232,7 +252,7 @@ const App: React.FC = () => {
       history: [...prev.history, '--- RESETEO DEL SORTEO ---']
     }));
     setWinners([]);
-    setWinnerQueue([]);
+    setCurrentBatchWinners([]);
   };
 
   const handleImport = async (file: File) => {
@@ -293,12 +313,23 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Winner Modals System */}
-      {winnerQueue.length > 0 && (
+      {/* 1. Modal Resumen de Ganadores (Aparece cuando alguien gana) */}
+      {currentBatchWinners.length > 0 && (
         <WinnerModal 
-          winner={winnerQueue[0]} 
-          onClose={handleNextWinner} 
-          remaining={winnerQueue.length - 1}
+          winners={currentBatchWinners} 
+          onClose={handleCloseWinnerModal} 
+          onViewDetails={handleViewDetailsFromSummary}
+        />
+      )}
+
+      {/* 2. Modal Detalle (Aparece al dar clic en el Ojo desde el Resumen o desde el Panel) */}
+      {viewingDetailsData && (
+        <WinnerDetailsModal 
+          winner={viewingDetailsData.winner}
+          participant={viewingDetailsData.participant}
+          card={viewingDetailsData.card}
+          drawnBalls={gameState.drawnBalls}
+          onClose={() => setViewingDetailsData(null)}
         />
       )}
 
@@ -308,7 +339,7 @@ const App: React.FC = () => {
           <h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-600">
             VIRTUAL BINGO PRO
           </h1>
-          <p className="text-xs text-slate-500 font-medium">Sistema de Gestión de Sorteos</p>
+          <p className="text-xs text-slate-500 font-medium">Aplicación web de bingo virtual</p>
         </div>
         <div className="text-right hidden sm:block">
           <div className="text-xs text-slate-400">Desarrollado por</div>
