@@ -1,0 +1,5 @@
+{
+  "name": "Virtual Bingo Pro",
+  "description": "A professional virtual bingo management system featuring participant registration, automated card generation, real-time drawing, winner detection, and Excel import/export capabilities.",
+  "requestFramePermissions": []
+}
