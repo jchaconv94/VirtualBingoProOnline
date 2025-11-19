@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, RotateCcw, Trophy, Hash, History, LayoutGrid, Eye, X, Star } from 'lucide-react';
-import { PatternKey, WinPattern } from '../types.ts';
+import { Play, RotateCcw, Trophy, Hash, History, LayoutGrid, Eye, X, Star, Gift, CheckCircle, Circle } from 'lucide-react';
+import { PatternKey, WinPattern, Prize } from '../types.ts';
 import { WIN_PATTERNS } from '../utils/helpers.ts';
 
 interface Props {
@@ -12,6 +12,8 @@ interface Props {
   hasParticipants: boolean;
   currentPattern: PatternKey;
   onPatternChange: (pattern: PatternKey) => void;
+  prizes?: Prize[];
+  onTogglePrize?: (id: string) => void;
 }
 
 const getBingoLetter = (num: number): string => {
@@ -30,7 +32,9 @@ const GamePanel: React.FC<Props> = ({
   historyLog, 
   hasParticipants,
   currentPattern,
-  onPatternChange
+  onPatternChange,
+  prizes = [],
+  onTogglePrize
 }) => {
   const [currentBall, setCurrentBall] = useState<number | string>('—');
   const [isAnimating, setIsAnimating] = useState(false);
@@ -161,10 +165,14 @@ const GamePanel: React.FC<Props> = ({
       )}
 
       {/* Pattern Selector & Big Ball Display */}
-      <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 shadow-xl backdrop-blur-sm flex-shrink-0">
+      <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 shadow-xl backdrop-blur-sm flex-shrink-0 relative overflow-hidden">
         
+        {/* Background Pattern Decoration */}
+        <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
         {/* Pattern Selection Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4 relative z-10">
           <div>
              <h2 className="text-xl font-bold text-white flex items-center gap-2 mb-1">
               <Trophy className="text-amber-500" size={24} />
@@ -205,10 +213,55 @@ const GamePanel: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Main Display: Letter Left, Ball Right */}
-        <div className="flex items-center justify-center py-6 relative">
+        {/* Main Display Area */}
+        <div className="relative min-h-[280px] flex items-center justify-center py-4">
           
-          <div className="relative">
+          {/* Left Column: Prizes List (Visual Integration) */}
+          {prizes.length > 0 && (
+             <div className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-72 hidden lg:flex flex-col gap-3 max-h-full overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-4 py-2">
+                {prizes.map((prize, idx) => {
+                  // Logic to highlight the NEXT prize to be won
+                  const previousWon = idx === 0 || prizes[idx - 1].isAwarded;
+                  const isNext = !prize.isAwarded && previousWon;
+                  
+                  return (
+                    <div 
+                      key={prize.id}
+                      onClick={() => onTogglePrize && onTogglePrize(prize.id)}
+                      className={`
+                        relative p-3 rounded-xl border backdrop-blur-md cursor-pointer transition-all duration-300
+                        ${prize.isAwarded 
+                          ? 'bg-slate-900/40 border-slate-800 text-slate-500 grayscale opacity-70' 
+                          : isNext 
+                             ? 'bg-amber-950/80 border-amber-400 border-2 shadow-[0_0_25px_rgba(245,158,11,0.25)] scale-105 z-10' 
+                             : 'bg-slate-900/60 border-slate-700 text-slate-300 opacity-80'
+                        }
+                      `}
+                    >
+                      {isNext && (
+                        <div className="absolute -top-2 -right-2 bg-amber-500 text-amber-950 text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm animate-pulse">
+                           JUGANDO
+                        </div>
+                      )}
+                      <div className="flex items-start gap-3">
+                         <div className={`mt-0.5 ${prize.isAwarded ? 'text-emerald-500' : isNext ? 'text-amber-400' : 'text-slate-500'}`}>
+                           {prize.isAwarded ? <CheckCircle size={16} /> : <Gift size={16} />}
+                         </div>
+                         <div className="flex-1 min-w-0">
+                            <div className="text-[10px] uppercase font-bold tracking-wider opacity-70 mb-0.5">{prize.name}</div>
+                            <div className={`text-sm font-bold truncate ${prize.isAwarded ? 'line-through decoration-slate-600' : isNext ? 'text-amber-200 text-base' : 'text-white'}`}>
+                              {prize.description}
+                            </div>
+                         </div>
+                      </div>
+                    </div>
+                  );
+                })}
+             </div>
+          )}
+
+          {/* Center: The Ball & Letter */}
+          <div className="relative flex items-center justify-center lg:ml-20"> {/* lg:ml-20 offsets the visual centering slightly to account for left sidebar */}
             {/* Letra de Bingo (Izquierda) - Absolute relative to Ball */}
             <div className="absolute right-full top-1/2 -translate-y-1/2 pr-3 sm:pr-5 flex justify-end min-w-[60px]">
               {typeof currentBall === 'number' && (
@@ -224,7 +277,7 @@ const GamePanel: React.FC<Props> = ({
             {/* La Bolilla (Centro) */}
             <div 
               className={`
-                w-48 h-48 sm:w-56 sm:h-56 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(0,0,0,0.6)] border-[6px] border-slate-800 relative overflow-hidden flex-shrink-0 z-10
+                w-48 h-48 sm:w-64 sm:h-64 rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(0,0,0,0.7)] border-[8px] border-slate-800 relative overflow-hidden flex-shrink-0 z-10
                 ${isAnimating 
                   ? 'bg-slate-900' 
                   : 'bg-gradient-to-br from-amber-400 via-orange-500 to-orange-700 shadow-orange-900/30'
@@ -237,7 +290,7 @@ const GamePanel: React.FC<Props> = ({
               
               {typeof currentBall === 'number' ? (
                 <div className="relative z-10">
-                   <span className={`text-7xl sm:text-9xl font-black tracking-tighter leading-none select-none flex items-center justify-center h-full pb-4 ${isAnimating ? 'text-slate-700' : 'text-white drop-shadow-md'}`}>
+                   <span className={`text-8xl sm:text-[9rem] font-black tracking-tighter leading-none select-none flex items-center justify-center h-full pb-6 ${isAnimating ? 'text-slate-700' : 'text-white drop-shadow-md'}`}>
                       {currentBall}
                    </span>
                 </div>
@@ -247,13 +300,13 @@ const GamePanel: React.FC<Props> = ({
             </div>
           </div>
           
-          {/* Pattern Mini Preview */}
+          {/* Pattern Mini Preview (Bottom Right Floating) */}
           <div className="absolute bottom-0 right-0 sm:right-4 text-[10px] text-slate-500 font-mono bg-slate-950/80 px-3 py-1.5 rounded-full border border-slate-800 flex items-center gap-1 shadow-lg z-20">
             <LayoutGrid size={10} /> {WIN_PATTERNS[currentPattern].label}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mt-6">
+        <div className="grid grid-cols-2 gap-3 mt-6 relative z-10">
           <button
             onClick={handleDraw}
             disabled={isDrawDisabled}
@@ -290,7 +343,7 @@ const GamePanel: React.FC<Props> = ({
           
           <div className="flex flex-col gap-3 overflow-x-auto custom-scrollbar py-2">
             {boardRows.map((row) => (
-              <div key={row.letter} className="flex items-center gap-3 flex-shrink-0 justify-center">
+              <div key={row.letter} className="flex items-center justify-center gap-3 flex-shrink-0">
                 {/* Letra Vertical */}
                 <div className={`w-10 aspect-square flex items-center justify-center text-2xl font-black ${row.color} bg-slate-950/50 rounded border border-slate-800`}>
                   {row.letter}

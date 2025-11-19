@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Participant, GameState, Winner, TOTAL_BALLS, NUMBERS_PER_CARD, BingoCard, PatternKey } from './types.ts';
+import { Participant, GameState, Winner, TOTAL_BALLS, NUMBERS_PER_CARD, BingoCard, PatternKey, Prize } from './types.ts';
 import { generateBingoCardNumbers, generateId, checkWinners, WIN_PATTERNS } from './utils/helpers.ts';
 import { exportToExcel, parseExcel, downloadCardImage, downloadAllCardsZip } from './services/exportService.ts';
 import RegistrationPanel from './components/RegistrationPanel.tsx';
@@ -8,13 +8,15 @@ import GamePanel from './components/GamePanel.tsx';
 import ParticipantsPanel from './components/ParticipantsPanel.tsx';
 import WinnerModal from './components/WinnerModal.tsx';
 import WinnerDetailsModal from './components/WinnerDetailsModal.tsx';
+import PrizesPanel from './components/PrizesPanel.tsx';
 import { Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 // LocalStorage Keys
 const LS_KEYS = {
   PARTICIPANTS: 'bingo_participants_v1',
   GAME_STATE: 'bingo_gamestate_v1',
-  WINNERS: 'bingo_winners_v1'
+  WINNERS: 'bingo_winners_v1',
+  PRIZES: 'bingo_prizes_v1'
 };
 
 // Helper para cargar datos de forma segura (evita errores si el JSON está corrupto)
@@ -51,6 +53,10 @@ const App: React.FC = () => {
   const [winners, setWinners] = useState<Winner[]>(() => 
     loadFromStorage(LS_KEYS.WINNERS, [])
   );
+
+  const [prizes, setPrizes] = useState<Prize[]>(() => 
+    loadFromStorage(LS_KEYS.PRIZES, [])
+  );
   
   // Estado para el modal de RESUMEN de ganadores (cuando salen nuevos ganadores)
   const [currentBatchWinners, setCurrentBatchWinners] = useState<Winner[]>([]);
@@ -79,6 +85,10 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem(LS_KEYS.WINNERS, JSON.stringify(winners));
   }, [winners]);
+
+  useEffect(() => {
+    localStorage.setItem(LS_KEYS.PRIZES, JSON.stringify(prizes));
+  }, [prizes]);
 
   // Listen for fullscreen changes (e.g. user presses ESC)
   useEffect(() => {
@@ -355,6 +365,30 @@ const App: React.FC = () => {
     if (card) downloadCardImage(p, card);
   };
 
+  // --- Prizes Handlers ---
+  const handleAddPrize = (name: string, description: string) => {
+    setPrizes(prev => [...prev, {
+      id: generateId('PR'),
+      name,
+      description,
+      isAwarded: false
+    }]);
+  };
+
+  const handleEditPrize = (id: string, name: string, description: string) => {
+    setPrizes(prev => prev.map(p => p.id === id ? { ...p, name, description } : p));
+  };
+
+  const handleRemovePrize = (id: string) => {
+    if (window.confirm('¿Eliminar este premio?')) {
+      setPrizes(prev => prev.filter(p => p.id !== id));
+    }
+  };
+
+  const handleTogglePrize = (id: string) => {
+    setPrizes(prev => prev.map(p => p.id === id ? { ...p, isAwarded: !p.isAwarded } : p));
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
       {/* 1. Modal Resumen de Ganadores (Aparece cuando alguien gana) */}
@@ -424,9 +458,9 @@ const App: React.FC = () => {
           : 'xl:grid-cols-[1fr_400px]'
       }`}>
         
-        {/* Left: Registration */}
+        {/* Left: Registration & Tools */}
         {showSidebar && (
-          <section className="flex flex-col gap-6 animate-in slide-in-from-left duration-300 fade-in">
+          <section className="flex flex-col gap-6 animate-in slide-in-from-left duration-300 fade-in overflow-y-auto h-[calc(100vh-155px)] pb-4 custom-scrollbar pr-2">
             <RegistrationPanel 
               onRegister={handleRegister}
               onImport={handleImport}
@@ -444,6 +478,15 @@ const App: React.FC = () => {
                 <li>Descarga cartones antes de empezar.</li>
               </ul>
             </div>
+
+            {/* New Prizes Panel - Now mainly for Management */}
+            <PrizesPanel 
+              prizes={prizes}
+              onAddPrize={handleAddPrize}
+              onEditPrize={handleEditPrize}
+              onRemovePrize={handleRemovePrize}
+              onTogglePrize={handleTogglePrize}
+            />
           </section>
         )}
 
@@ -457,6 +500,8 @@ const App: React.FC = () => {
             hasParticipants={participants.length > 0}
             currentPattern={gameState.selectedPattern}
             onPatternChange={handlePatternChange}
+            prizes={prizes}
+            onTogglePrize={handleTogglePrize}
           />
         </section>
 

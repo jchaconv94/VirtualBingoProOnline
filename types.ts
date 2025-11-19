@@ -21,6 +21,13 @@ export interface Winner {
   winningNumber: number;
 }
 
+export interface Prize {
+  id: string;
+  name: string;
+  description: string; // e.g. "S/ 100.00"
+  isAwarded: boolean;
+}
+
 export type PatternKey = 
   | 'FULL' 
   | 'X' 
