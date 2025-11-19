@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { Participant, GameState, Winner, TOTAL_BALLS, NUMBERS_PER_CARD, BingoCard, PatternKey } from './types.ts';
-import { generateBingoCardNumbers, generateId, checkWinners } from './utils/helpers.ts';
+import { generateBingoCardNumbers, generateId, checkWinners, WIN_PATTERNS } from './utils/helpers.ts';
 import { exportToExcel, parseExcel, downloadCardImage, downloadAllCardsZip } from './services/exportService.ts';
 import RegistrationPanel from './components/RegistrationPanel.tsx';
 import GamePanel from './components/GamePanel.tsx';
@@ -215,26 +215,30 @@ const App: React.FC = () => {
     const randomIndex = Math.floor(Math.random() * available.length);
     const newBall = available[randomIndex];
 
-    // Generate Logs based on hits
+    // Generate Logs based on hits specific to the current PATTERN
     const time = new Date().toLocaleTimeString();
     const newLogs: string[] = [];
-    let hitFound = false;
+    
+    // Obtener los índices requeridos por el patrón actual
+    const patternIndices = WIN_PATTERNS[gameState.selectedPattern].indices;
+    let relevantHitFound = false;
 
     participants.forEach(p => {
       p.cards.forEach(c => {
-        if (c.numbers.includes(newBall)) {
-          hitFound = true;
-          // Optional: We could log every hit, but it might spam. 
-          // newLogs.push(`${time}: ${p.name} ${p.surname} marcó la bolilla N° ${newBall} en el cartón ${c.id}`);
+        // Encontramos en qué posición (0-24) está la bolilla en este cartón
+        const ballIndexOnCard = c.numbers.indexOf(newBall);
+        
+        // Si el número existe en el cartón (index != -1) Y esa posición es requerida por el patrón actual
+        if (ballIndexOnCard !== -1 && patternIndices.includes(ballIndexOnCard)) {
+          relevantHitFound = true;
+          newLogs.push(`${time}: ${p.name} ${p.surname} acertó la bolilla N° ${newBall} en el cartón ${c.id}`);
         }
       });
     });
 
-    // If no one had the ball, show generic message
-    if (!hitFound) {
+    // If no one had the ball in a relevant position
+    if (!relevantHitFound) {
       newLogs.push(`${time}: Bolilla N° ${newBall} fue sorteada`);
-    } else {
-      newLogs.push(`${time}: Bolilla N° ${newBall} (Hubo aciertos)`);
     }
 
     setGameState(prev => ({

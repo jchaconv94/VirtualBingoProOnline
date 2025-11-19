@@ -48,14 +48,22 @@ const BingoCard: React.FC<Props> = ({ card, drawnBalls, onDelete, onDownload, is
         <div className="flex gap-1">
           <button 
             onClick={() => onDownload(card.id)} 
-            className="p-1 text-slate-400 hover:text-cyan-400 hover:bg-cyan-950/50 rounded transition-colors" 
+            className={`p-1 rounded transition-colors ${
+              isWinner 
+                ? 'text-amber-200 hover:text-white hover:bg-amber-500/30' 
+                : 'text-slate-400 hover:text-cyan-400 hover:bg-cyan-950/50'
+            }`}
             title="Descargar PNG"
           >
             <Download size={14} />
           </button>
           <button 
             onClick={() => onDelete(card.id)} 
-            className="p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-950/50 rounded transition-colors"
+            className={`p-1 rounded transition-colors ${
+              isWinner 
+                ? 'text-amber-200 hover:text-white hover:bg-amber-500/30' 
+                : 'text-slate-400 hover:text-rose-400 hover:bg-rose-950/50'
+            }`}
             title="Eliminar"
           >
             <Trash2 size={14} />

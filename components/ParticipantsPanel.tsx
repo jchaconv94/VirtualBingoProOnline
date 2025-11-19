@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Search, Users, Medal, Ticket, Edit2, Trash2, Save, X, Eye } from 'lucide-react';
+import { Search, Users, Medal, Ticket, Edit2, Trash2, Save, X, Eye, EyeOff } from 'lucide-react';
 import { Participant, Winner, BingoCard as BingoCardType, PatternKey } from '../types.ts';
 import BingoCard from './BingoCard.tsx';
 import WinnerDetailsModal from './WinnerDetailsModal.tsx';
@@ -31,6 +31,7 @@ const ParticipantsPanel: React.FC<Props> = ({
   const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: '', surname: '', dni: '', phone: '' });
+  const [hideParticipants, setHideParticipants] = useState(false);
   
   // State to control the details modal
   const [viewingWinnerData, setViewingWinnerData] = useState<{
@@ -96,10 +97,19 @@ const ParticipantsPanel: React.FC<Props> = ({
       <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-5 shadow-xl backdrop-blur-sm flex flex-col h-full">
         <div className="flex flex-col gap-4 mb-4 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Users className="text-emerald-500" size={24} />
-              Participantes
-            </h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Users className="text-emerald-500" size={24} />
+                Participantes
+              </h2>
+              <button
+                onClick={() => setHideParticipants(!hideParticipants)}
+                className="p-1.5 text-slate-400 hover:text-cyan-400 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700"
+                title={hideParticipants ? "Mostrar nombres" : "Ocultar nombres (Privacidad)"}
+              >
+                {hideParticipants ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
 
           {/* Winners Section */}
@@ -111,7 +121,7 @@ const ParticipantsPanel: React.FC<Props> = ({
               <div className="max-h-24 overflow-y-auto custom-scrollbar space-y-1">
                 {winners.map((w, i) => (
                   <div key={i} className="text-xs text-amber-100 bg-amber-900/40 px-2 py-1 rounded flex justify-between items-center group">
-                    <span>{w.participantName}</span>
+                    <span className={hideParticipants ? "blur-sm select-none" : ""}>{w.participantName}</span>
                     <div className="flex items-center gap-2">
                       <span className="font-mono opacity-70">{w.cardId}</span>
                       <button 
@@ -193,12 +203,14 @@ const ParticipantsPanel: React.FC<Props> = ({
                     <div className="flex justify-between items-start gap-2">
                       <div className="min-w-0 flex-1">
                         <h3 
-                          className="font-semibold text-slate-200 truncate group-hover:text-cyan-400 transition-colors" 
+                          className={`font-semibold text-slate-200 truncate group-hover:text-cyan-400 transition-colors ${hideParticipants ? 'blur-sm select-none' : ''}`}
                           title={`${p.name} ${p.surname}`}
                         >
                           {p.name} {p.surname}
                         </h3>
-                        <p className="text-xs text-slate-500 truncate">DNI: {p.dni} {p.phone && `• ${p.phone}`}</p>
+                        <p className={`text-xs text-slate-500 truncate ${hideParticipants ? 'blur-sm select-none' : ''}`}>
+                          DNI: {p.dni} {p.phone && `• ${p.phone}`}
+                        </p>
                       </div>
                       
                       <div className="flex gap-1 items-start flex-shrink-0">
