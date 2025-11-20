@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { Participant, GameState, Winner, TOTAL_BALLS, NUMBERS_PER_CARD, BingoCard, PatternKey, Prize } from './types.ts';
@@ -204,12 +203,12 @@ const App: React.FC = () => {
   };
 
   const handleAddCard = (participantId: string) => {
-    let newCardId = '';
-    setGameState(prev => {
-       const newSeq = prev.lastCardSequence + 1;
-       newCardId = `C${newSeq.toString().padStart(4, '0')}`;
-       return { ...prev, lastCardSequence: newSeq };
-    });
+    // FIX: Calculate new ID based on current state BEFORE calling setters.
+    // This prevents race conditions where newCardId would be empty in production builds.
+    const newSeq = gameState.lastCardSequence + 1;
+    const newCardId = `C${newSeq.toString().padStart(4, '0')}`;
+
+    setGameState(prev => ({ ...prev, lastCardSequence: newSeq }));
 
     setParticipants(prev => prev.map(p => {
       if (p.id === participantId) {
