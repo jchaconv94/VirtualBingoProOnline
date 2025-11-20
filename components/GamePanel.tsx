@@ -273,8 +273,8 @@ const GamePanel: React.FC<Props> = ({
                            cellClass = "bg-gradient-to-br from-cyan-500 to-blue-600 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.5)] scale-105 z-10 ring-1 ring-cyan-400/50";
                            content = <div className="w-3 h-3 rounded-full bg-white shadow-sm" />;
                         } else {
-                           // Inactive cells
-                           cellClass = "bg-slate-900/50 border-slate-800/50 opacity-40";
+                           // Inactive cells - Mejorada la visibilidad: borde más claro y sin opacidad baja
+                           cellClass = "bg-slate-900 border-slate-600 opacity-100";
                         }
 
                         return (
