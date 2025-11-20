@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, RotateCcw, Trophy, Hash, History, LayoutGrid, Eye, X, Star, Gift, CheckCircle, Circle, PauseCircle, PlayCircle, Lock } from 'lucide-react';
 import { PatternKey, WinPattern, Prize } from '../types.ts';
@@ -25,6 +26,76 @@ const getBingoLetter = (num: number): string => {
   if (num >= 46 && num <= 60) return 'G';
   if (num >= 61 && num <= 75) return 'O';
   return '';
+};
+
+const getBallStyles = (val: number | string) => {
+  const defaultStyle = {
+    background: 'radial-gradient(circle at 30% 30%, #334155 0%, #0f172a 100%)',
+    color: 'text-slate-500',
+    shadow: 'rgba(0,0,0,0.5)',
+    border: 'border-slate-700',
+    inkShadow: '0 1px 1px rgba(255,255,255,0.1)'
+  };
+
+  if (typeof val !== 'number') return defaultStyle;
+
+  // Common ink shadow for white text: subtle dark drop to simulate paint thickness
+  const whiteTextInk = '0px 2px 4px rgba(0,0,0,0.3)';
+  // Ink for dark text (on white ball): subtle light drop
+  const darkTextInk = '0px 1px 0px rgba(255,255,255,0.5)';
+
+  // B (1-15): Blue / Cyan
+  if (val >= 1 && val <= 15) {
+    return {
+      background: 'radial-gradient(circle at 35% 35%, #22d3ee 0%, #06b6d4 20%, #0891b2 50%, #155e75 85%, #0e7490 100%)',
+      color: 'text-white/95', // Slightly transparent to blend with texture
+      shadow: 'rgba(6, 182, 212, 0.5)',
+      border: 'border-cyan-400/30',
+      inkShadow: whiteTextInk
+    };
+  }
+  // I (16-30): Red / Rose
+  if (val >= 16 && val <= 30) {
+    return {
+      background: 'radial-gradient(circle at 35% 35%, #fb7185 0%, #f43f5e 20%, #e11d48 50%, #be123c 85%, #881337 100%)',
+      color: 'text-white/95',
+      shadow: 'rgba(225, 29, 72, 0.5)',
+      border: 'border-rose-400/30',
+      inkShadow: whiteTextInk
+    };
+  }
+  // N (31-45): White / Silver (Bingo balls for N are usually white)
+  if (val >= 31 && val <= 45) {
+    return {
+      background: 'radial-gradient(circle at 35% 35%, #ffffff 0%, #f8fafc 20%, #cbd5e1 50%, #64748b 85%, #334155 100%)',
+      color: 'text-slate-900/90',
+      shadow: 'rgba(148, 163, 184, 0.5)',
+      border: 'border-white/30',
+      inkShadow: darkTextInk
+    };
+  }
+  // G (46-60): Green / Emerald
+  if (val >= 46 && val <= 60) {
+    return {
+      background: 'radial-gradient(circle at 35% 35%, #34d399 0%, #10b981 20%, #059669 50%, #047857 85%, #064e3b 100%)',
+      color: 'text-white/95',
+      shadow: 'rgba(16, 185, 129, 0.5)',
+      border: 'border-emerald-400/30',
+      inkShadow: whiteTextInk
+    };
+  }
+  // O (61-75): Yellow / Amber
+  if (val >= 61 && val <= 75) {
+    return {
+      background: 'radial-gradient(circle at 35% 35%, #fcd34d 0%, #fbbf24 20%, #d97706 50%, #b45309 85%, #78350f 100%)',
+      color: 'text-white/95',
+      shadow: 'rgba(217, 119, 6, 0.5)',
+      border: 'border-amber-400/30',
+      inkShadow: whiteTextInk
+    };
+  }
+
+  return defaultStyle;
 };
 
 const GamePanel: React.FC<Props> = ({ 
@@ -58,7 +129,7 @@ const GamePanel: React.FC<Props> = ({
     }
   }, [lastBall]);
 
-  // Efecto para abrir el modal automáticamente al cambiar de patrón (excepto en NONE o inicial)
+  // Efecto para abrir el modal automáticamente al cambiar de patrón
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -73,9 +144,9 @@ const GamePanel: React.FC<Props> = ({
     if (isAnimating) return;
     setIsAnimating(true);
 
-    // Simple animation effect
-    let duration = 3000; // Increased to 3 seconds for more suspense
-    let intervalTime = 60; // Slightly faster updates
+    // Animation config
+    let duration = 3000; 
+    let intervalTime = 60; 
     let elapsed = 0;
 
     const interval = setInterval(() => {
@@ -91,17 +162,11 @@ const GamePanel: React.FC<Props> = ({
     }, intervalTime);
   };
 
-  // --- Validations for button disable ---
+  // --- Validations ---
   const allPrizesAwarded = prizes.length > 0 && prizes.every(p => p.isAwarded);
   const noPrizes = prizes.length === 0;
-  
-  // ESTADO CRITICO: Premio entregado (roundLocked = true).
-  // El patrón sigue visible, pero el juego está bloqueado hasta resetear.
   const roundFinishedNeedsReset = roundLocked;
-  
   const noPattern = currentPattern === 'NONE';
-  
-  // Lógica para ocultar el botón de PAUSAR si no ha iniciado el juego (drawnBalls length > 0)
   const gameStarted = drawnBalls.length > 0;
   
   const isDrawDisabled = isAnimating || drawnBalls.length >= 75 || !hasParticipants || noPrizes || noPattern || allPrizesAwarded || roundLocked || isPaused;
@@ -109,7 +174,6 @@ const GamePanel: React.FC<Props> = ({
   let buttonTooltip = "";
   let buttonLabel = "SACAR BOLILLA";
 
-  // Orden de prioridad de mensajes
   if (isPaused) {
     buttonTooltip = "Juego Pausado. Reanuda para continuar.";
     buttonLabel = "PAUSADO";
@@ -119,7 +183,6 @@ const GamePanel: React.FC<Props> = ({
     buttonTooltip = "¡Juego Terminado! Todos los premios entregados.";
     buttonLabel = "EVENTO FINALIZADO";
   } else if (roundFinishedNeedsReset) {
-    // MENSAJE ESPECÍFICO SOLICITADO
     buttonTooltip = "Resetea las bolillas para jugar el siguiente premio.";
     buttonLabel = "RONDA FINALIZADA";
   } else if (noPattern) {
@@ -129,7 +192,6 @@ const GamePanel: React.FC<Props> = ({
     buttonTooltip = "Registra participantes para comenzar.";
   }
 
-  // Configuración de las filas del tablero
   const boardRows = [
     { letter: 'B', min: 1, max: 15, color: 'text-cyan-400' },
     { letter: 'I', min: 16, max: 30, color: 'text-rose-400' },
@@ -138,83 +200,116 @@ const GamePanel: React.FC<Props> = ({
     { letter: 'O', min: 61, max: 75, color: 'text-amber-400' },
   ];
 
+  // Obtener estilos dinámicos de la bola actual
+  const ballStyle = getBallStyles(currentBall);
+
   return (
     <div className="flex flex-col w-full gap-4 relative h-full">
       
-      {/* Modal de Previsualización del Patrón */}
+      {/* Modal de Previsualización del Patrón - MEJORADO */}
       {showPatternPreview && currentPattern !== 'NONE' && (
-        <div className="fixed inset-0 z-[50] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-full max-w-xs p-5 relative animate-in zoom-in-95 duration-300">
-            <button 
-              onClick={() => setShowPatternPreview(false)}
-              className="absolute top-3 right-3 text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition-colors"
-            >
-              <X size={20} />
-            </button>
-            
-            <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
-              <LayoutGrid className="text-cyan-500" size={20} />
-              Patrón: {WIN_PATTERNS[currentPattern].label}
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">Las casillas resaltadas son necesarias para ganar.</p>
+        <div 
+          className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300" 
+          onClick={() => setShowPatternPreview(false)}
+        >
+          <div 
+            className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md relative animate-in zoom-in-95 duration-300 flex flex-col overflow-hidden" 
+            onClick={e => e.stopPropagation()}
+          >
+             {/* Header Gradient Line */}
+             <div className="h-1.5 w-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500"></div>
 
-            {/* Mini Grid 5x5 with BINGO Header */}
-            <div className="w-full bg-slate-950 rounded-lg p-3 border border-slate-800">
-               {/* BINGO Letters Header */}
-               <div className="grid grid-cols-5 gap-2 mb-2">
-                  {['B', 'I', 'N', 'G', 'O'].map(letter => (
-                    <div key={letter} className="text-center font-black text-slate-500 text-lg select-none">
-                      {letter}
-                    </div>
-                  ))}
-               </div>
+             <div className="p-6">
+                <button 
+                  onClick={() => setShowPatternPreview(false)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 rounded-full hover:bg-slate-800 transition-colors"
+                >
+                  <X size={24} />
+                </button>
+                
+                <div className="text-center mb-6">
+                   <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-slate-800 text-cyan-400 mb-3 border border-slate-700 shadow-lg">
+                      <LayoutGrid size={28} />
+                   </div>
+                   <h3 className="text-2xl font-black text-white tracking-tight mb-1">
+                    {WIN_PATTERNS[currentPattern].label}
+                   </h3>
+                   <p className="text-sm text-slate-400">
+                     Complete las casillas resaltadas para ganar.
+                   </p>
+                </div>
 
-               {/* Cells Grid */}
-               <div className="grid grid-cols-5 gap-2 aspect-square">
-                 {Array.from({ length: 25 }).map((_, index) => {
-                    const isActive = WIN_PATTERNS[currentPattern].indices.includes(index);
-                    const isCenter = index === 12;
-                    
-                    return (
-                      <div 
-                        key={index}
-                        className={`
-                          rounded flex items-center justify-center transition-all duration-300 border
-                          ${isCenter 
-                            ? 'bg-amber-900/40 border-amber-500/50 text-amber-500' 
-                            : isActive 
-                              ? 'bg-emerald-600 border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.4)]' 
-                              : 'bg-slate-900 border-slate-800 opacity-40'
-                          }
-                        `}
-                      >
-                        {isCenter ? <Star size={16} fill="currentColor" /> : (isActive && <div className="w-2 h-2 rounded-full bg-white/80" />)}
-                      </div>
-                    );
-                 })}
-               </div>
-            </div>
-            
-            <div className="mt-4 text-center">
-              <button 
-                 onClick={() => setShowPatternPreview(false)}
-                 className="text-xs bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                Entendido
-              </button>
-            </div>
+                {/* Grid 5x5 */}
+                <div className="bg-slate-950 rounded-2xl p-5 border border-slate-800 shadow-inner mx-auto w-full max-w-[320px]">
+                   <div className="grid grid-cols-5 gap-3 mb-3">
+                      {['B', 'I', 'N', 'G', 'O'].map((letter, i) => {
+                        const colors = [
+                          'text-cyan-400 bg-cyan-950/30 border-cyan-500/20', 
+                          'text-rose-400 bg-rose-950/30 border-rose-500/20', 
+                          'text-white bg-slate-800/50 border-slate-500/20', 
+                          'text-emerald-400 bg-emerald-950/30 border-emerald-500/20', 
+                          'text-amber-400 bg-amber-950/30 border-amber-500/20'
+                        ];
+                        return (
+                          <div key={letter} className={`text-center font-black text-lg py-1 rounded border ${colors[i]} shadow-sm select-none`}>
+                            {letter}
+                          </div>
+                        );
+                      })}
+                   </div>
+                   
+                   <div className="grid grid-cols-5 gap-3 aspect-square">
+                     {Array.from({ length: 25 }).map((_, index) => {
+                        const isActive = WIN_PATTERNS[currentPattern].indices.includes(index);
+                        const isCenter = index === 12;
+                        
+                        let cellClass = "bg-slate-900 border-slate-800";
+                        let content = null;
+
+                        if (isCenter) {
+                           cellClass = "bg-amber-500 text-slate-900 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.6)] scale-110 z-20 ring-2 ring-amber-500/30";
+                           content = <Star size={20} fill="currentColor" className="animate-pulse" />;
+                        } else if (isActive) {
+                           cellClass = "bg-gradient-to-br from-cyan-500 to-blue-600 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.5)] scale-105 z-10 ring-1 ring-cyan-400/50";
+                           content = <div className="w-3 h-3 rounded-full bg-white shadow-sm" />;
+                        } else {
+                           // Inactive cells
+                           cellClass = "bg-slate-900/50 border-slate-800/50 opacity-40";
+                        }
+
+                        return (
+                          <div 
+                            key={index}
+                            className={`
+                              rounded-lg border flex items-center justify-center transition-all duration-500 relative
+                              ${cellClass}
+                            `}
+                          >
+                            {content}
+                          </div>
+                        );
+                     })}
+                   </div>
+                </div>
+
+                <button 
+                   onClick={() => setShowPatternPreview(false)}
+                   className="w-full mt-6 bg-slate-800 hover:bg-slate-700 text-white font-bold py-3.5 rounded-xl transition-all border border-slate-700 hover:border-slate-600 shadow-lg text-sm uppercase tracking-wide"
+                >
+                  Cerrar Ventana
+                </button>
+             </div>
           </div>
         </div>
       )}
 
-      {/* Pattern Selector & Big Ball Display */}
+      {/* Panel de Sorteo */}
       <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 shadow-xl backdrop-blur-sm flex-shrink-0 relative overflow-hidden">
         
-        {/* Background Pattern Decoration */}
         <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
-        {/* Pattern Selection Header */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-4 relative z-10">
           <div>
              <h2 className="text-lg 2xl:text-3xl font-bold text-white flex items-center gap-2 mb-0.5">
@@ -232,8 +327,7 @@ const GamePanel: React.FC<Props> = ({
               <select 
                 value={currentPattern}
                 onChange={(e) => onPatternChange(e.target.value as PatternKey)}
-                disabled={roundLocked} // Bloquear si el premio ya fue entregado para forzar reset
-                title={roundLocked ? "Resetea las bolillas para cambiar el patrón" : "Selecciona la forma ganadora"}
+                disabled={roundLocked}
                 className={`
                   bg-slate-950 border text-white text-xs sm:text-sm rounded-lg block w-full px-2.5 py-1.5 cursor-pointer transition-all
                   ${currentPattern === 'NONE' ? 'border-amber-500 ring-1 ring-amber-500/50 text-amber-300 animate-pulse' : 'border-slate-700 focus:ring-cyan-500 focus:border-cyan-500 hover:border-cyan-500/50'}
@@ -245,12 +339,10 @@ const GamePanel: React.FC<Props> = ({
                   </option>
                 ))}
               </select>
-              
               <button
                 onClick={() => setShowPatternPreview(true)}
                 disabled={currentPattern === 'NONE'}
                 className={`p-2 border rounded-lg transition-colors ${currentPattern === 'NONE' ? 'bg-slate-900 border-slate-800 text-slate-600' : 'bg-slate-800 hover:bg-slate-700 text-cyan-400 border-slate-700'}`}
-                title="Ver forma de ganar"
               >
                 <Eye size={16} />
               </button>
@@ -258,21 +350,17 @@ const GamePanel: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Main Display Area */}
+        {/* Zona Central de la Bola */}
         <div className="relative min-h-[240px] flex items-center justify-center py-2 perspective-1000">
           
-          {/* Left Column: Prizes List (Visual Integration) */}
+          {/* Lista de Premios (Izquierda) */}
           {prizes.length > 0 && (
              <div className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-64 hidden lg:flex flex-col gap-3 max-h-full overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pl-2 pr-3 py-2">
                 {prizes.map((prize, idx) => {
-                  // Logic to highlight the NEXT prize to be won
                   const previousWon = idx === 0 || prizes[idx - 1].isAwarded;
                   const isNext = !prize.isAwarded && previousWon;
-                  
-                  // Logic for dynamic font size based on length to force single line
                   const textLen = prize.description.length;
-                  let dynamicFontSize = 'text-lg'; // Default base for inactive
-                  
+                  let dynamicFontSize = 'text-lg';
                   if (isNext) {
                     if (textLen <= 6) dynamicFontSize = 'text-4xl';       
                     else if (textLen <= 8) dynamicFontSize = 'text-3xl';  
@@ -297,45 +385,23 @@ const GamePanel: React.FC<Props> = ({
                         }
                       `}
                     >
-                       {isNext && <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>}
-
                        <div className="p-3 flex items-center gap-3 relative overflow-hidden">
-                          
                           <div className={`
                              flex-shrink-0 flex items-center justify-center rounded-lg backdrop-blur-md shadow-inner
-                             ${isNext 
-                                ? 'w-14 h-14 bg-white/20 text-white' 
-                                : prize.isAwarded 
-                                  ? 'w-10 h-10 bg-emerald-950 text-emerald-500' 
-                                  : 'w-8 h-8 bg-slate-800 text-slate-600'}
+                             ${isNext ? 'w-14 h-14 bg-white/20 text-white' : prize.isAwarded ? 'w-10 h-10 bg-emerald-950 text-emerald-500' : 'w-8 h-8 bg-slate-800 text-slate-600'}
                           `}>
-                             {prize.isAwarded ? <CheckCircle size={20} /> : <Gift size={isNext ? 32 : 20} className={isNext ? "drop-shadow-md" : ""} />}
+                             {prize.isAwarded ? <CheckCircle size={20} /> : <Gift size={isNext ? 32 : 20} />}
                           </div>
-
                           <div className="flex-1 min-w-0 z-10">
-                             {isNext && (
-                                <div className="text-[9px] font-black text-amber-100 uppercase tracking-widest mb-0.5 animate-pulse">
-                                   JUGANDO
-                                </div>
-                             )}
-                             {prize.isAwarded && (
-                                <div className="text-[9px] font-bold text-emerald-500 uppercase tracking-wider mb-0.5">
-                                   ENTREGADO
-                                </div>
-                             )}
-
+                             {isNext && <div className="text-[9px] font-black text-amber-100 uppercase tracking-widest mb-0.5 animate-pulse">JUGANDO</div>}
+                             {prize.isAwarded && <div className="text-[9px] font-bold text-emerald-500 uppercase tracking-wider mb-0.5">ENTREGADO</div>}
                              <div className={`text-[10px] uppercase font-bold tracking-wide leading-none mb-1 ${isNext ? 'text-white/90' : 'text-slate-400'}`}>
                                 {prize.name}
                              </div>
-                             
                              <div className={`font-black leading-none whitespace-nowrap ${dynamicFontSize} tracking-tight ${isNext ? 'text-white drop-shadow-sm' : prize.isAwarded ? 'text-slate-500 line-through' : 'text-slate-500'}`}>
                                {prize.description}
                              </div>
                           </div>
-
-                          {isNext && (
-                             <Gift className="absolute -right-2 -bottom-3 text-white/10 rotate-[-15deg]" size={64} />
-                          )}
                        </div>
                     </div>
                   );
@@ -343,10 +409,10 @@ const GamePanel: React.FC<Props> = ({
              </div>
           )}
 
-          {/* Center: The 3D Ball & Letter */}
+          {/* Centro: Bolilla 3D Estilo Bingo */}
           <div className="relative flex items-center justify-center lg:ml-10">
             
-            {/* Letra de Bingo (Izquierda) */}
+            {/* Letra Columna */}
             <div className="absolute right-full top-1/2 -translate-y-1/2 pr-6 flex justify-end min-w-[60px]">
               {typeof currentBall === 'number' && (
                 <div className={`flex flex-col items-center duration-500 ${isAnimating ? 'opacity-50 scale-90 blur-[1px]' : 'opacity-100 scale-100 animate-in slide-in-from-right-4'}`}>
@@ -358,7 +424,7 @@ const GamePanel: React.FC<Props> = ({
               )}
             </div>
 
-            {/* La Bolilla 3D (Centro) */}
+            {/* La Bolilla 3D */}
             <div className="relative">
                {/* Sombra de suelo */}
                <div className={`absolute -bottom-4 left-1/2 -translate-x-1/2 w-32 h-8 bg-black/60 rounded-[100%] blur-md transition-all duration-200 ${isAnimating ? 'scale-75 opacity-40' : 'scale-100 opacity-60'}`}></div>
@@ -366,63 +432,69 @@ const GamePanel: React.FC<Props> = ({
                {/* Cuerpo de la Esfera */}
                <div 
                  className={`
-                   w-48 h-48 sm:w-56 sm:h-56 rounded-full flex items-center justify-center relative z-10
-                   transition-all duration-150
+                   w-48 h-48 sm:w-56 sm:h-56 rounded-full flex items-center justify-center relative
+                   transition-all duration-150 border-b-4
                    ${isAnimating ? 'animate-bounce' : 'animate-in zoom-in-90 duration-500'}
+                   ${ballStyle.border}
                  `}
                  style={{
-                    // Generic Realistic 3D Sphere Gradient for Amber/Orange Ball
-                    background: isAnimating 
-                       ? 'radial-gradient(circle at 35% 35%, #fde68a 0%, #d97706 40%, #92400e 80%, #451a03 100%)' 
-                       : 'radial-gradient(circle at 30% 30%, #fff7ed 0%, #fbbf24 15%, #d97706 50%, #92400e 85%, #451a03 100%)',
-                    boxShadow: 'inset -10px -10px 30px rgba(0,0,0,0.5), 0 0 0 2px rgba(251, 191, 36, 0.1), 0 20px 40px rgba(0,0,0,0.6)'
+                    background: ballStyle.background,
+                    boxShadow: `inset -10px -10px 30px rgba(0,0,0,0.5), inset 10px 10px 30px rgba(255,255,255,0.1), 0 20px 40px ${ballStyle.shadow}`
                  }}
                >
-                  {/* Brillo Especular (Glossy Shine) - Top Left */}
-                  <div className="absolute top-[10%] left-[15%] w-[35%] h-[20%] bg-gradient-to-b from-white/90 to-transparent rounded-[100%] rotate-[-45deg] blur-[2px] opacity-80 pointer-events-none"></div>
-                  
-                  {/* Reflejo secundario inferior */}
-                  <div className="absolute bottom-[5%] right-[15%] w-[30%] h-[10%] bg-orange-400/30 rounded-[100%] blur-md rotate-[-45deg] pointer-events-none"></div>
-
-                  {/* Círculo Central Blanco (Contenedor del número) */}
-                  <div 
-                     className={`
-                        bg-white w-[65%] h-[65%] rounded-full flex items-center justify-center shadow-[inset_0_2px_10px_rgba(0,0,0,0.3)] relative overflow-hidden
-                        ${isAnimating ? 'animate-spin' : ''} 
-                     `}
-                     style={{ animationDuration: '0.3s' }} // Fast spin blur during animation
-                  >
-                     {/* Textura sutil papel */}
-                     <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/felt.png')]"></div>
+                  {/* Número en la esfera - Z-INDEX 10 (Por debajo del brillo) */}
+                  <div className={`
+                     relative z-10 flex items-center justify-center w-full h-full
+                     ${isAnimating ? 'animate-spin' : ''} 
+                  `} style={{ animationDuration: '0.4s' }}>
+                     
+                     {/* Línea de unión de plástico (opcional, sutil) */}
+                     <div className="absolute inset-0 rounded-full border border-white/10 opacity-30 pointer-events-none transform rotate-45"></div>
 
                      {typeof currentBall === 'number' ? (
                        <span 
                           className={`
-                             text-7xl sm:text-8xl font-black tracking-tighter leading-none select-none text-slate-900
+                             text-7xl sm:text-[7rem] font-black tracking-tighter leading-none select-none
+                             ${ballStyle.color}
                              ${isAnimating ? 'blur-[4px] scale-75 opacity-50' : 'blur-0 scale-100 opacity-100'}
                              transition-all duration-200
                           `}
-                          style={{ textShadow: '1px 2px 4px rgba(0,0,0,0.2)' }}
+                          style={{ 
+                             // Efecto de impresión: Sombra dura y corta (ink shadow)
+                             textShadow: ballStyle.inkShadow,
+                             // Fusión sutil para que parezca parte del material
+                             mixBlendMode: 'normal'
+                          }}
                        >
                           {currentBall}
                        </span>
                      ) : (
-                        <span className="text-7xl sm:text-8xl font-black select-none text-slate-300 opacity-30">{currentBall}</span>
+                        <span className="text-7xl sm:text-[7rem] font-black select-none text-slate-500/30">{currentBall}</span>
                      )}
                   </div>
+
+                  {/* Brillos y Reflejos - Z-INDEX 20 (Por encima del número) */}
+                  {/* Esto hace que el número parezca impreso EN la bola, debajo del acabado brillante */}
                   
-                  {/* Anillo metálico decorativo (opcional, si se desea ver como una jaula, pero aquí es estilo esfera de pool) */}
-                  <div className="absolute inset-0 rounded-full border-[1px] border-white/20 pointer-events-none"></div>
+                  {/* Brillo Plástico Principal (Highlight) */}
+                  <div className="absolute top-[10%] left-[20%] w-[30%] h-[15%] bg-gradient-to-b from-white/90 to-transparent rounded-[100%] rotate-[-45deg] blur-[2px] opacity-80 pointer-events-none z-20"></div>
+                  
+                  {/* Brillo Secundario pequeño */}
+                  <div className="absolute top-[20%] left-[15%] w-[10%] h-[5%] bg-white rounded-full blur-[1px] opacity-90 pointer-events-none z-20"></div>
+                  
+                  {/* Reflejo inferior (Bounce light) */}
+                  <div className="absolute bottom-[10%] right-[20%] w-[40%] h-[20%] bg-white/10 rounded-[100%] blur-md rotate-[-45deg] pointer-events-none z-20"></div>
                </div>
             </div>
           </div>
           
-          {/* Pattern Mini Preview (Bottom Right Floating) */}
+          {/* Pattern Mini Preview */}
           <div className="absolute bottom-0 right-0 sm:right-4 text-xs sm:text-sm text-slate-400 font-bold bg-slate-950/90 px-3 py-1.5 rounded-full border border-slate-700 flex items-center gap-2 shadow-lg z-20">
             <LayoutGrid size={14} /> {WIN_PATTERNS[currentPattern].label}
           </div>
         </div>
 
+        {/* Botones de Control */}
         <div className="grid grid-cols-4 gap-3 mt-4 relative z-10">
           <button
             onClick={handleDraw}
@@ -456,7 +528,7 @@ const GamePanel: React.FC<Props> = ({
                 <button
                   onClick={onTogglePause}
                   className={`flex-1 rounded-lg transition-all flex flex-col items-center justify-center text-[10px] font-bold uppercase tracking-wider gap-1 border ${isPaused ? 'bg-amber-500 text-slate-900 border-amber-400 animate-pulse' : 'bg-slate-800 text-amber-500 border-slate-700 hover:bg-slate-700'}`}
-                  title="Pausar sorteo para realizar acciones administrativas (Eliminar participantes)"
+                  title="Pausar sorteo para realizar acciones administrativas"
                 >
                    {isPaused ? <PlayCircle size={20} /> : <PauseCircle size={20} />}
                    {isPaused ? 'REANUDAR' : 'PAUSAR'}
@@ -474,35 +546,21 @@ const GamePanel: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Recent Balls & History Split - FIXED HEIGHT REMOVED, COMPACT LAYOUT */}
+      {/* Tablero de Control */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
-        
-        {/* Board of drawn numbers (Control Board) */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-3 shadow-xl backdrop-blur-sm flex flex-col h-full lg:col-span-2 overflow-hidden">
           <h3 className="text-sm 2xl:text-[20px] font-semibold text-slate-300 mb-3 flex items-center gap-2 flex-shrink-0">
             <Hash className="w-3.5 h-3.5 2xl:w-6 2xl:h-6" /> Tablero de control
           </h3>
-          
-          {/* CONTROL BOARD CONTAINER: fluid, takes all available space */}
           <div className="flex flex-col gap-1 py-1 flex-1 min-h-0 justify-between">
             {boardRows.map((row) => (
               <div key={row.letter} className="flex items-stretch justify-start gap-1 flex-1 min-h-0 w-full">
-                
-                {/* Letra Vertical - Fluid sizing (flex-1, h-full, removed fixed pixels) */}
-                <div className={`
-                   flex-1 h-full
-                   flex items-center justify-center 
-                   text-sm sm:text-xl font-black 
-                   ${row.color} bg-slate-950/80 rounded border border-slate-700
-                `}>
+                <div className={`flex-1 h-full flex items-center justify-center text-sm sm:text-xl font-black ${row.color} bg-slate-950/80 rounded border border-slate-700`}>
                   {row.letter}
                 </div>
-                
-                {/* Números de la fila - Fluid sizing */}
                 {Array.from({ length: 15 }, (_, i) => row.min + i).map(num => {
                     const isDrawn = drawnBalls.includes(num);
                     const isLast = lastBall === num;
-                    
                     return (
                       <div 
                         key={num}
@@ -525,7 +583,7 @@ const GamePanel: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Text Log - Wrapper Relative + Absolute Inner for Correct Scroll Behavior */}
+        {/* Historial */}
         <div className="relative h-48 lg:h-auto w-full">
           <div className="absolute inset-0 bg-slate-900/50 border border-slate-800 rounded-2xl p-3 shadow-xl backdrop-blur-sm flex flex-col overflow-hidden">
             <h3 className="text-sm 2xl:text-[20px] font-semibold text-slate-300 mb-2 flex items-center gap-2 flex-shrink-0">
