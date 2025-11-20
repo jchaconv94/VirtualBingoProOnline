@@ -1,8 +1,8 @@
 
-
 export interface BingoCard {
   id: string;
   numbers: number[]; // Array of 25 items (index 12 is 0/placeholder)
+  isInvalid?: boolean; // New flag to mark void cards
 }
 
 export interface Participant {

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { BingoCard as BingoCardType, PatternKey } from '../types.ts';
-import { Download, Trash2, Star, MessageCircle, Share2 } from 'lucide-react';
+import { Download, Trash2, Star, MessageCircle, Share2, Ban } from 'lucide-react';
 import { WIN_PATTERNS } from '../utils/helpers.ts';
 
 interface Props {
@@ -28,10 +28,12 @@ const BingoCard: React.FC<Props> = ({
   readOnly = false
 }) => {
   
+  const isInvalid = card.isInvalid;
   const patternIndices = WIN_PATTERNS[currentPattern].indices;
 
   // Calculate if this card is a winner based on the pattern
-  const isWinner = patternIndices.length > 0 && patternIndices.every(idx => {
+  // IMPORTANT: If invalid, it's never a winner
+  const isWinner = !isInvalid && patternIndices.length > 0 && patternIndices.every(idx => {
     const val = card.numbers[idx];
     return val === 0 || drawnBalls.includes(val);
   });
@@ -57,12 +59,23 @@ const BingoCard: React.FC<Props> = ({
   return (
     <div className={`
       relative overflow-hidden rounded-2xl transition-all duration-300 flex flex-col shadow-xl
-      ${isWinner 
-        ? 'bg-gradient-to-br from-amber-900/80 to-slate-900 border-2 border-amber-400 shadow-[0_0_25px_rgba(245,158,11,0.4)] scale-[1.02] z-10' 
-        : 'bg-slate-900 border border-slate-700 hover:border-slate-500'
+      ${isInvalid 
+         ? 'bg-slate-950 border-2 border-rose-900/50 grayscale opacity-70'
+         : isWinner 
+            ? 'bg-gradient-to-br from-amber-900/80 to-slate-900 border-2 border-amber-400 shadow-[0_0_25px_rgba(245,158,11,0.4)] scale-[1.02] z-10' 
+            : 'bg-slate-900 border border-slate-700 hover:border-slate-500'
       }
     `}>
       
+      {/* Overlay for Invalid Cards */}
+      {isInvalid && (
+         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[1px] pointer-events-none">
+            <div className="bg-rose-600/90 text-white font-black text-lg sm:text-2xl border-4 border-white/20 px-4 py-1 rotate-[-15deg] shadow-2xl tracking-widest uppercase">
+               ANULADO
+            </div>
+         </div>
+      )}
+
       {/* Top Bar: ID and Actions */}
       <div className={`
         flex items-center justify-between bg-slate-950 border-b border-slate-800
@@ -72,7 +85,7 @@ const BingoCard: React.FC<Props> = ({
           <span className={`uppercase font-bold text-slate-500 tracking-widest ${isCompact ? 'text-[7px]' : 'text-[9px]'}`}>
             Cartón N°
           </span>
-          <span className={`font-mono font-black text-white tracking-tight ${isCompact ? 'text-base' : 'text-2xl'}`}>
+          <span className={`font-mono font-black tracking-tight ${isInvalid ? 'text-rose-900' : 'text-white'} ${isCompact ? 'text-base' : 'text-2xl'}`}>
             {card.id}
           </span>
         </div>
@@ -83,9 +96,14 @@ const BingoCard: React.FC<Props> = ({
               WINNER
             </div>
           )}
+          {isInvalid && (
+             <div className={`font-black uppercase bg-rose-900 text-rose-400 rounded px-2 py-0.5 ${isCompact ? 'text-[9px]' : 'text-xs'}`}>
+                VOID
+             </div>
+          )}
           
           {!readOnly && (
-            <div className="flex gap-1 pl-2 border-l border-slate-800 ml-1">
+            <div className="flex gap-1 pl-2 border-l border-slate-800 ml-1 relative z-50">
               {hasPhone && onShare && (
                 <button 
                   onClick={() => onShare(card.id)} 
@@ -124,7 +142,7 @@ const BingoCard: React.FC<Props> = ({
                key={i} 
                className={`
                  flex items-center justify-center font-black rounded-md border shadow-sm select-none
-                 ${h.bg} ${h.border} ${h.color}
+                 ${isInvalid ? 'bg-slate-800 border-slate-700 text-slate-600' : `${h.bg} ${h.border} ${h.color}`}
                  ${isCompact ? 'text-sm py-0.5' : 'text-2xl py-1'}
                `}
              >
@@ -144,32 +162,40 @@ const BingoCard: React.FC<Props> = ({
             let cellStyle = 'bg-slate-800 border-slate-700 text-slate-400'; // Default inactive
             let content = <span className="opacity-80">{number}</span>;
             
-            if (isCenter) {
-               // Center Star
-               const activeClass = isRequiredByPattern 
-                  ? "text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]" 
-                  : "text-slate-600";
-               
-               cellStyle = "bg-slate-800/80 border-slate-700";
-               content = <Star fill="currentColor" size={isCompact ? 14 : 24} className={activeClass} />;
-            } else if (isMarked) {
-               // Marked Number
-               if (isRequiredByPattern) {
-                 // Marked AND Required (Good!)
-                 cellStyle = "bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400 text-white shadow-[0_0_10px_rgba(16,185,129,0.4)] scale-105 z-10 ring-1 ring-emerald-300/50";
-                 content = <span className="font-black drop-shadow-md">{number}</span>;
-               } else {
-                 // Marked but useless for pattern
-                 cellStyle = "bg-slate-700 border-slate-600 text-slate-400 opacity-50";
-                 content = <span className="font-medium line-through decoration-slate-500/50">{number}</span>;
+            if (isInvalid) {
+               cellStyle = "bg-slate-900 border-slate-800 text-slate-700";
+               if (isCenter) {
+                  content = <Ban size={isCompact ? 14 : 24} className="text-slate-700" />;
                }
             } else {
-               // Not Marked
-               if (isRequiredByPattern) {
-                 // Required but waiting
-                 cellStyle = "bg-slate-800 border-slate-600 text-white ring-1 ring-white/10";
-                 content = <span className="font-bold">{number}</span>;
-               }
+               // Normal Logic
+                if (isCenter) {
+                   // Center Star
+                   const activeClass = isRequiredByPattern 
+                      ? "text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]" 
+                      : "text-slate-600";
+                   
+                   cellStyle = "bg-slate-800/80 border-slate-700";
+                   content = <Star fill="currentColor" size={isCompact ? 14 : 24} className={activeClass} />;
+                } else if (isMarked) {
+                   // Marked Number
+                   if (isRequiredByPattern) {
+                     // Marked AND Required (Good!)
+                     cellStyle = "bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400 text-white shadow-[0_0_10px_rgba(16,185,129,0.4)] scale-105 z-10 ring-1 ring-emerald-300/50";
+                     content = <span className="font-black drop-shadow-md">{number}</span>;
+                   } else {
+                     // Marked but useless for pattern
+                     cellStyle = "bg-slate-700 border-slate-600 text-slate-400 opacity-50";
+                     content = <span className="font-medium line-through decoration-slate-500/50">{number}</span>;
+                   }
+                } else {
+                   // Not Marked
+                   if (isRequiredByPattern) {
+                     // Required but waiting
+                     cellStyle = "bg-slate-800 border-slate-600 text-white ring-1 ring-white/10";
+                     content = <span className="font-bold">{number}</span>;
+                   }
+                }
             }
 
             return (
@@ -193,7 +219,7 @@ const BingoCard: React.FC<Props> = ({
         bg-slate-950 border-t border-slate-800 flex justify-between items-center font-medium text-slate-500
       `}>
          <span className="uppercase tracking-wider truncate max-w-[70%]">{WIN_PATTERNS[currentPattern].label}</span>
-         <span className={`${matchesCount === totalRequired ? 'text-emerald-400 font-bold animate-pulse' : 'text-slate-400'}`}>
+         <span className={`${!isInvalid && matchesCount === totalRequired ? 'text-emerald-400 font-bold animate-pulse' : 'text-slate-400'}`}>
             {matchesCount} / {totalRequired}
          </span>
       </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { Participant, GameState, Winner, TOTAL_BALLS, NUMBERS_PER_CARD, BingoCard, PatternKey, Prize } from './types.ts';
@@ -330,6 +331,7 @@ const App: React.FC = () => {
 
     participants.forEach(p => {
       p.cards.forEach(c => {
+        if (c.isInvalid) return; // Skip invalid cards
         const ballIndexOnCard = c.numbers.indexOf(newBall);
         if (ballIndexOnCard !== -1 && patternIndices.includes(ballIndexOnCard)) {
           relevantHitFound = true;
@@ -415,17 +417,33 @@ const App: React.FC = () => {
   };
 
   const handleRejectWinner = (invalidWinner: Winner) => {
+    // 1. Remove from current winners view
     const remainingInBatch = currentBatchWinners.filter(w => 
        !(w.cardId === invalidWinner.cardId && w.timestamp === invalidWinner.timestamp)
     );
 
+    // 2. Remove from historical winners list
     setWinners(prev => prev.filter(w => 
        !(w.cardId === invalidWinner.cardId && w.timestamp === invalidWinner.timestamp)
     ));
 
+    // 3. MARK THE CARD AS INVALID IN THE PARTICIPANTS LIST
+    // This ensures checkWinners will ignore this card in the future
+    setParticipants(prev => prev.map(p => {
+       if (p.id === invalidWinner.participantId) {
+          return {
+             ...p,
+             cards: p.cards.map(c => 
+                c.id === invalidWinner.cardId ? { ...c, isInvalid: true } : c
+             )
+          };
+       }
+       return p;
+    }));
+
     if (remainingInBatch.length > 0) {
        setCurrentBatchWinners(remainingInBatch);
-       addLog(`⚠️ Ganador invalidado: ${invalidWinner.participantName}.`);
+       addLog(`⚠️ Ganador invalidado: ${invalidWinner.participantName} (Cartón ${invalidWinner.cardId} ANULADO).`);
     } else {
        // Si era el único ganador, liberamos el premio y REANUDAMOS el juego.
        if (invalidWinner.prizeId) {
@@ -438,11 +456,11 @@ const App: React.FC = () => {
        setGameState(prev => ({
           ...prev,
           // NO reseteamos las bolillas ni el patrón, solo desbloqueamos para seguir jugando
-          history: [...prev.history, `🚫 Ganador invalidado: ${invalidWinner.participantName}. Sorteo reanudado.`],
+          history: [...prev.history, `🚫 Ganador invalidado: ${invalidWinner.participantName}. Cartón ${invalidWinner.cardId} ANULADO. Sorteo reanudado.`],
           roundLocked: false
        }));
        setCurrentBatchWinners([]);
-       addLog("⚠️ Ganador invalidado. Puede continuar sacando bolillas para encontrar al siguiente ganador.");
+       addLog("⚠️ Ganador invalidado y cartón anulado. Continúa sacando bolillas para encontrar al siguiente ganador.");
     }
   };
 
@@ -514,6 +532,14 @@ const App: React.FC = () => {
     }));
     setWinners([]);
     setCurrentBatchWinners([]);
+    
+    // Reset invalid status on cards if full reset
+    if (totalPrizes > 0 || confirmed) {
+       setParticipants(prev => prev.map(p => ({
+          ...p,
+          cards: p.cards.map(c => ({ ...c, isInvalid: false })) // Restore cards for new event
+       })));
+    }
     
     if (totalPrizes > 0) {
        setPrizes([]); 

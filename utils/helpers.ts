@@ -1,5 +1,4 @@
 
-
 import { Participant, Winner, WinPattern, PatternKey } from '../types.ts';
 
 /**
@@ -171,6 +170,9 @@ export const checkWinners = (
   participants.forEach(p => {
     p.cards.forEach(c => {
       
+      // CRITICAL: Skip invalid cards (Anulados)
+      if (c.isInvalid) return;
+
       // Check ONLY the indices defined by the pattern
       const isWinner = patternIndices.every(index => {
         const numberAtPos = c.numbers[index];
