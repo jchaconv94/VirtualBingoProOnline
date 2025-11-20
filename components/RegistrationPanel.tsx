@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { UserPlus, Upload, Download, FileSpreadsheet, Image as ImageIcon, RefreshCw, Ticket } from 'lucide-react';
+import { UserPlus, Upload, FileSpreadsheet, Archive, Save, Ticket, User, Hash, Phone, ChevronRight } from 'lucide-react';
 import { Participant } from '../types.ts';
 
 interface Props {
@@ -19,13 +19,14 @@ const RegistrationPanel: React.FC<Props> = ({ onRegister, onImport, onExport, on
     phone: '',
     cardsCount: 1
   });
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null); // Referencia para el foco
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.dni) return;
     
-    // Ensure at least 1 card
     const count = Math.max(1, Math.floor(formData.cardsCount));
 
     onRegister(
@@ -45,104 +46,138 @@ const RegistrationPanel: React.FC<Props> = ({ onRegister, onImport, onExport, on
       phone: '',
       cardsCount: 1
     });
+
+    // Regresar el foco al primer input (Nombre)
+    setTimeout(() => {
+        nameInputRef.current?.focus();
+    }, 0);
   };
 
   return (
-    <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3 shadow-xl backdrop-blur-sm">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm 2xl:text-[20px] font-bold text-white flex items-center gap-2">
-          <UserPlus className="text-cyan-500 w-[18px] h-[18px] 2xl:w-6 2xl:h-6" />
-          Registro
-        </h2>
-        <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-slate-700">
-          Total: {totalParticipants}
-        </span>
+    // Expanded Design: p-6 instead of p-4, gap-5 instead of gap-4
+    <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-2xl backdrop-blur-md flex flex-col gap-5 relative overflow-hidden group shrink-0">
+      
+      {/* Background Decor */}
+      <div className="absolute top-0 right-0 w-40 h-40 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/2"></div>
+
+      {/* Header Expanded */}
+      <div className="flex items-center justify-between relative z-10 pb-4 border-b border-slate-800/60">
+        <div>
+            <h2 className="text-xl font-bold text-white flex items-center gap-3">
+            <div className="p-2.5 bg-cyan-500/10 rounded-xl border border-cyan-500/20 text-cyan-400 shadow-lg shadow-cyan-900/10">
+                <UserPlus size={22} />
+            </div>
+            Nuevo Jugador
+            </h2>
+        </div>
+        <div className="flex flex-col items-end">
+            <span className="text-[10px] font-bold uppercase text-slate-500 mb-1 tracking-wider">Total Registrados</span>
+            <span className="text-2xl font-black text-white bg-slate-950 px-4 py-1 rounded-lg border border-slate-800 shadow-inner font-mono tracking-tight">
+            {totalParticipants}
+            </span>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-2">
-        <div className="grid grid-cols-1 gap-2">
-          <div>
+      <form onSubmit={handleSubmit} className="space-y-4 relative z-10">
+        <div className="space-y-4">
+          
+          {/* Nombre */}
+          <div className="relative group/input">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-cyan-400 transition-colors">
+                <User size={20} />
+            </div>
             <input
+              ref={nameInputRef}
               type="text"
               required
               value={formData.name}
               onChange={e => setFormData({...formData, name: e.target.value})}
-              className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-xs text-white focus:ring-1 focus:ring-cyan-500 focus:border-transparent outline-none transition-all"
-              placeholder="Nombre"
+              // Expanded Inputs: py-3.5 instead of py-3
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-12 pr-4 py-3.5 text-base text-white placeholder-slate-600 focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 outline-none transition-all shadow-sm"
+              placeholder="Nombres del participante"
             />
           </div>
-          <div>
+
+          {/* Apellidos */}
+          <div className="relative group/input">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-cyan-400 transition-colors">
+                <User size={20} />
+            </div>
             <input
               type="text"
               value={formData.surname}
               onChange={e => setFormData({...formData, surname: e.target.value})}
-              className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-xs text-white focus:ring-1 focus:ring-cyan-500 focus:border-transparent outline-none transition-all"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-12 pr-4 py-3.5 text-base text-white placeholder-slate-600 focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 outline-none transition-all shadow-sm"
               placeholder="Apellidos"
             />
           </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <input
-              type="text"
-              required
-              value={formData.dni}
-              onChange={e => setFormData({...formData, dni: e.target.value})}
-              className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-xs text-white focus:ring-1 focus:ring-cyan-500 focus:border-transparent outline-none transition-all"
-              placeholder="DNI / ID"
-            />
-          </div>
-          <div>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={e => setFormData({...formData, phone: e.target.value})}
-              className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-xs text-white focus:ring-1 focus:ring-cyan-500 focus:border-transparent outline-none transition-all"
-              placeholder="Teléfono"
-            />
-          </div>
-        </div>
-
-        <div>
-           <div className="relative group">
-              <Ticket className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-500 transition-colors" size={12} />
-              <input
-                type="number"
-                min="1"
-                max="1000"
+          {/* Grid Responsive: 1 Col on mobile, 2 cols on larger */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+             {/* DNI */}
+            <div className="relative group/input">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-cyan-400 transition-colors">
+                    <Hash size={20} />
+                </div>
+                <input
+                type="text"
                 required
-                value={formData.cardsCount}
-                onChange={e => setFormData({...formData, cardsCount: Number(e.target.value)})}
-                className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 pl-7 text-xs text-white focus:ring-1 focus:ring-cyan-500 focus:border-transparent outline-none transition-all placeholder-slate-500"
-                placeholder="Cantidad de cartones"
-              />
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-600 font-bold pointer-events-none">
-                 CARTONES
-              </span>
-           </div>
+                value={formData.dni}
+                onChange={e => setFormData({...formData, dni: e.target.value})}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-3 py-3.5 text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 outline-none transition-all shadow-sm"
+                placeholder="DNI / ID"
+                />
+            </div>
+
+            {/* Phone */}
+            <div className="relative group/input">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-cyan-400 transition-colors">
+                    <Phone size={20} />
+                </div>
+                <input
+                type="tel"
+                value={formData.phone}
+                onChange={e => setFormData({...formData, phone: e.target.value})}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-3 py-3.5 text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 outline-none transition-all shadow-sm"
+                placeholder="Teléfono"
+                />
+            </div>
+          </div>
+        </div>
+
+        {/* Cards Count Section */}
+        <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50 flex items-center gap-4 hover:border-emerald-500/30 transition-colors">
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20 shadow-lg shadow-emerald-900/10">
+                <Ticket size={24} />
+            </div>
+            <div className="flex-1">
+                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5 tracking-wide">Cantidad de Cartones</label>
+                <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    required
+                    value={formData.cardsCount}
+                    onChange={e => setFormData({...formData, cardsCount: Number(e.target.value)})}
+                    className="w-full bg-transparent text-white font-black text-2xl border-none focus:ring-0 p-0 h-auto placeholder-slate-600"
+                    placeholder="1"
+                />
+            </div>
+            <div className="text-[11px] font-bold text-slate-500 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">UNIDADES</div>
         </div>
 
         <button
           type="submit"
-          className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-2 rounded transition-all shadow-lg shadow-cyan-900/20 flex items-center justify-center gap-2 text-xs"
+          className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-lg py-4 rounded-xl transition-all shadow-lg shadow-cyan-900/30 flex items-center justify-center gap-2 transform hover:-translate-y-0.5 active:translate-y-0 mt-2"
         >
-          <UserPlus size={14} />
-          Registrar
+          <Save size={20} />
+          REGISTRAR
+          <ChevronRight size={20} className="opacity-50" />
         </button>
       </form>
 
-      <div className="my-3 border-t border-slate-800"></div>
-
-      <div className="space-y-2">
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-medium py-1.5 px-2 rounded border border-slate-700 transition-colors"
-          >
-            <Upload size={12} />
-            Importar
-          </button>
+      <div className="mt-auto pt-4 border-t border-slate-800/60 grid grid-cols-3 gap-3">
+          
           <input
             type="file"
             ref={fileInputRef}
@@ -150,26 +185,39 @@ const RegistrationPanel: React.FC<Props> = ({ onRegister, onImport, onExport, on
             accept=".xlsx, .xls"
             onChange={(e) => {
               if (e.target.files?.[0]) onImport(e.target.files[0]);
-              e.target.value = ''; // reset
+              e.target.value = ''; 
             }}
           />
           
           <button
-            onClick={onExport}
-            className="flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-medium py-1.5 px-2 rounded border border-slate-700 transition-colors"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex flex-col items-center justify-center gap-1.5 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white text-[11px] font-medium py-3 rounded-xl border border-slate-800 hover:border-slate-600 transition-all group shadow-sm"
           >
-            <FileSpreadsheet size={12} />
-            Exportar
+            <div className="bg-slate-800 group-hover:bg-slate-700 p-2 rounded-lg transition-colors">
+               <Upload size={18} className="text-slate-400 group-hover:text-cyan-400 transition-colors" />
+            </div>
+            <span>Importar</span>
           </button>
-        </div>
 
-        <button
-          onClick={onGenerateAllImages}
-          className="w-full flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[10px] font-medium py-1.5 px-2 rounded border border-slate-700 transition-colors"
-        >
-          <ImageIcon size={12} />
-          Descargar Todo (ZIP)
-        </button>
+          <button
+            onClick={onExport}
+            className="flex flex-col items-center justify-center gap-1.5 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white text-[11px] font-medium py-3 rounded-xl border border-slate-800 hover:border-slate-600 transition-all group shadow-sm"
+          >
+            <div className="bg-slate-800 group-hover:bg-slate-700 p-2 rounded-lg transition-colors">
+               <FileSpreadsheet size={18} className="text-slate-400 group-hover:text-emerald-400 transition-colors" />
+            </div>
+            <span>Exportar</span>
+          </button>
+
+          <button
+            onClick={onGenerateAllImages}
+            className="flex flex-col items-center justify-center gap-1.5 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white text-[11px] font-medium py-3 rounded-xl border border-slate-800 hover:border-slate-600 transition-all group shadow-sm"
+          >
+             <div className="bg-slate-800 group-hover:bg-slate-700 p-2 rounded-lg transition-colors">
+               <Archive size={18} className="text-slate-400 group-hover:text-amber-400 transition-colors" />
+             </div>
+            <span>Backup ZIP</span>
+          </button>
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { Participant, GameState, Winner, TOTAL_BALLS, NUMBERS_PER_CARD, BingoCard, PatternKey, Prize } from './types.ts';
@@ -683,43 +684,45 @@ const App: React.FC = () => {
         onClick={() => setShowSidebar(false)}
       />
 
-      {/* Sidebar */}
+      {/* Sidebar Responsive Width - W-FULL on Mobile, Fixed on Desktop, Scrollable */}
       <aside 
-        className={`fixed top-0 left-0 h-full w-[320px] bg-slate-900/95 border-r border-slate-800 shadow-2xl z-[100] transform transition-transform duration-300 ease-out overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4 ${showSidebar ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`fixed top-0 left-0 h-full w-full sm:w-[450px] bg-slate-900/95 border-r border-slate-800 shadow-2xl z-[100] transform transition-transform duration-300 ease-out overflow-y-auto custom-scrollbar p-4 flex flex-col gap-6 ${showSidebar ? 'translate-x-0' : '-translate-x-full'}`}
       >
-         <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-800/50">
-            <h3 className="font-bold text-white flex items-center gap-2">
-               <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+         <div className="flex justify-between items-center pb-2 border-b border-slate-800/50 flex-shrink-0">
+            <h3 className="font-bold text-white flex items-center gap-2 text-lg">
+               <div className="w-2.5 h-2.5 rounded-full bg-cyan-500 shadow-lg shadow-cyan-500/50"></div>
                Menú de Gestión
             </h3>
-            <button onClick={() => setShowSidebar(false)} className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors">
-              <X size={20} />
+            <button onClick={() => setShowSidebar(false)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors border border-transparent hover:border-slate-700">
+              <X size={22} />
             </button>
          </div>
 
-         <RegistrationPanel 
-            onRegister={handleRegister}
-            onImport={handleImport}
-            onExport={() => exportToExcel(participants)}
-            onGenerateAllImages={() => downloadAllCardsZip(participants, bingoTitle, bingoSubtitle)}
-            totalParticipants={participants.length}
-          />
-          
-          <PrizesPanel 
-            prizes={prizes}
-            onAddPrize={handleAddPrize}
-            onEditPrize={handleEditPrize}
-            onRemovePrize={handleRemovePrize}
-            onTogglePrize={handleTogglePrize}
-          />
-          
-          <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-3 text-[11px] text-slate-500 mt-auto">
-            <h4 className="font-bold text-slate-400 mb-1 text-[12px]">Reglas de Juego</h4>
-            <ul className="list-disc list-inside space-y-0.5">
-              <li>La partida dura hasta entregar todos los premios.</li>
-              <li>Resetear borra ganadores, bolillas y premios.</li>
-            </ul>
-          </div>
+         <div className="flex-1 flex flex-col gap-6 min-h-0">
+            <RegistrationPanel 
+              onRegister={handleRegister}
+              onImport={handleImport}
+              onExport={() => exportToExcel(participants)}
+              onGenerateAllImages={() => downloadAllCardsZip(participants, bingoTitle, bingoSubtitle)}
+              totalParticipants={participants.length}
+            />
+            
+            <PrizesPanel 
+              prizes={prizes}
+              onAddPrize={handleAddPrize}
+              onEditPrize={handleEditPrize}
+              onRemovePrize={handleRemovePrize}
+              onTogglePrize={handleTogglePrize}
+            />
+            
+            <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4 text-xs text-slate-500 mt-auto flex-shrink-0">
+              <h4 className="font-bold text-slate-400 mb-2 text-sm">Reglas de Juego</h4>
+              <ul className="list-disc list-inside space-y-1">
+                <li>La partida dura hasta entregar todos los premios.</li>
+                <li>Resetear borra ganadores, bolillas y premios.</li>
+              </ul>
+            </div>
+         </div>
       </aside>
 
       {showTitleModal && (
@@ -805,7 +808,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 p-4 max-w-[1920px] mx-auto w-full grid grid-cols-1 gap-4 transition-all duration-300 items-start xl:grid-cols-[1fr_360px] 2xl:grid-cols-[1fr_500px]">
+      <main className="flex-1 p-4 max-w-[1920px] mx-auto w-full grid grid-cols-1 gap-4 transition-all duration-300 items-start xl:grid-cols-[1fr_400px] 2xl:grid-cols-[1fr_500px]">
         <section className="flex flex-col gap-4">
           <GamePanel 
             drawnBalls={gameState.drawnBalls}
