@@ -277,12 +277,12 @@ const GamePanel: React.FC<Props> = ({
                       `}
                     >
                       {isNext && (
-                        <div className="absolute -top-2 right-0 bg-amber-500 text-amber-950 text-[8px] font-black px-1 py-0.5 rounded shadow-sm animate-pulse">
+                        <div className="absolute -top-2 right-0 bg-amber-500 text-amber-950 text-[9px] font-black px-1 py-0.5 rounded shadow-sm animate-pulse">
                            JUGANDO
                         </div>
                       )}
                       {prize.isAwarded && (
-                        <div className="absolute -top-2 right-0 bg-emerald-600 text-white text-[8px] font-black px-1 py-0.5 rounded shadow-sm z-10">
+                        <div className="absolute -top-2 right-0 bg-emerald-600 text-white text-[9px] font-black px-1 py-0.5 rounded shadow-sm z-10">
                            ENTREGADO
                         </div>
                       )}

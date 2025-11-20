@@ -86,6 +86,7 @@ const PrizesPanel: React.FC<Props> = ({ prizes, onAddPrize, onRemovePrize, onEdi
               placeholder="Monto (S/)"
               required
             />
+
           </div>
           <button 
             type="submit"
