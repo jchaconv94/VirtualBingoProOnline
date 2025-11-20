@@ -17,7 +17,7 @@ const WinnerModal: React.FC<Props> = ({ winners, onClose, onViewDetails, onConfi
   const handleReject = async (w: Winner) => {
     const isSoleWinner = winners.length === 1;
     const message = isSoleWinner
-      ? `¿INVALIDAR a ${w.participantName}?\n\nAl ser el único ganador:\n1. Se eliminará de la lista.\n2. Se resetearán las bolillas.\n3. El premio volverá a estar disponible.`
+      ? `¿INVALIDAR a ${w.participantName}?\n\nAl ser el único ganador:\n1. Se eliminará de la lista.\n2. El premio volverá a estar disponible.\n3. El juego se REANUDARÁ para buscar otro ganador.`
       : `¿INVALIDAR a ${w.participantName}?\n\nHay ${winners.length} ganadores. Esta acción solo eliminará a este participante. El premio seguirá asignado a los restantes.`;
 
     const confirmed = await showConfirm({

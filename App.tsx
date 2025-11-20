@@ -427,21 +427,22 @@ const App: React.FC = () => {
        setCurrentBatchWinners(remainingInBatch);
        addLog(`⚠️ Ganador invalidado: ${invalidWinner.participantName}.`);
     } else {
+       // Si era el único ganador, liberamos el premio y REANUDAMOS el juego.
        if (invalidWinner.prizeId) {
           setPrizes(prev => prev.map(p => 
              p.id === invalidWinner.prizeId ? { ...p, isAwarded: false } : p
           ));
-          addLog(`↩️ Premio "${invalidWinner.prizeName}" reabierto.`);
+          addLog(`↩️ Premio "${invalidWinner.prizeName}" liberado.`);
        }
+       
        setGameState(prev => ({
           ...prev,
-          drawnBalls: [],
-          history: [...prev.history, `🚫 Ganador invalidado: ${invalidWinner.participantName}. Ronda reiniciada.`],
-          selectedPattern: 'NONE',
+          // NO reseteamos las bolillas ni el patrón, solo desbloqueamos para seguir jugando
+          history: [...prev.history, `🚫 Ganador invalidado: ${invalidWinner.participantName}. Sorteo reanudado.`],
           roundLocked: false
        }));
        setCurrentBatchWinners([]);
-       addLog("⚠️ Ronda invalidada y reiniciada por falta de ganadores válidos.");
+       addLog("⚠️ Ganador invalidado. Puede continuar sacando bolillas para encontrar al siguiente ganador.");
     }
   };
 
