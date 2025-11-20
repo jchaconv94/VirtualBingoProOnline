@@ -31,7 +31,8 @@ const BingoCard: React.FC<Props> = ({
   const patternIndices = WIN_PATTERNS[currentPattern].indices;
 
   // Calculate if this card is a winner based on the pattern
-  const isWinner = patternIndices.every(idx => {
+  // Fix: [].every() returns true in JS, so we must ensure patternIndices has elements (is not NONE)
+  const isWinner = patternIndices.length > 0 && patternIndices.every(idx => {
     const val = card.numbers[idx];
     return val === 0 || drawnBalls.includes(val);
   });
