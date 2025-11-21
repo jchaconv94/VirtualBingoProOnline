@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { Participant, GameState, Winner, TOTAL_BALLS, NUMBERS_PER_CARD, BingoCard, PatternKey, Prize } from './types.ts';
 import { generateBingoCardNumbers, generateId, checkWinners, WIN_PATTERNS } from './utils/helpers.ts';
@@ -13,7 +13,7 @@ import WinnerDetailsModal from './components/WinnerDetailsModal.tsx';
 import PrizesPanel from './components/PrizesPanel.tsx';
 import EditTitleModal from './components/EditTitleModal.tsx';
 import ConnectionModal from './components/ConnectionModal.tsx';
-import { Maximize2, Minimize2, PanelLeftOpen, Edit, FileText, Image as ImageIcon, Cloud, RefreshCw, Loader2, Link } from 'lucide-react';
+import { Maximize2, Minimize2, PanelLeftOpen, Edit, FileText, Image as ImageIcon, Cloud, RefreshCw, Loader2, Link, Zap } from 'lucide-react';
 import { useAlert, AlertAction } from './contexts/AlertContext.tsx';
 
 // LocalStorage Keys
@@ -24,7 +24,9 @@ const LS_KEYS = {
   PRIZES: 'bingo_prizes_v1',
   TITLE: 'bingo_title_v1',
   SUBTITLE: 'bingo_subtitle_v1',
-  SHEET_URL: 'bingo_sheet_url_v1'
+  SHEET_URL: 'bingo_sheet_url_v1',
+  AUTO_SYNC: 'bingo_auto_sync_v1',
+  SYNC_INTERVAL: 'bingo_sync_interval_v1'
 };
 
 // URL por defecto proporcionada por el usuario
@@ -46,11 +48,18 @@ const App: React.FC = () => {
   // --- Configuración de Nube ---
   const [sheetUrl, setSheetUrl] = useState<string>(() => {
     const saved = loadFromStorage(LS_KEYS.SHEET_URL, '');
-    // Si no hay URL guardada o es vacía, usamos la URL por defecto del script
     return saved || DEFAULT_SHEET_URL;
   });
+  
+  // Auto Sync Config
+  const [autoSync, setAutoSync] = useState<boolean>(() => loadFromStorage(LS_KEYS.AUTO_SYNC, true));
+  const [syncInterval, setSyncInterval] = useState<number>(() => loadFromStorage(LS_KEYS.SYNC_INTERVAL, 5000));
+
   const [isSyncing, setIsSyncing] = useState(false);
   const [showConnectionModal, setShowConnectionModal] = useState(false);
+  
+  // Ref para evitar solapamiento de peticiones en polling
+  const isPollingRef = useRef(false);
 
   // --- State con Inicialización Perezosa ---
   const [participants, setParticipants] = useState<Participant[]>(() => 
@@ -100,7 +109,7 @@ const App: React.FC = () => {
 
   const totalCards = participants.reduce((acc, p) => acc + p.cards.length, 0);
 
-  // --- Persistence & Sync ---
+  // --- Persistence ---
   useEffect(() => { localStorage.setItem(LS_KEYS.PARTICIPANTS, JSON.stringify(participants)); }, [participants]);
   useEffect(() => { localStorage.setItem(LS_KEYS.GAME_STATE, JSON.stringify(gameState)); }, [gameState]);
   useEffect(() => { localStorage.setItem(LS_KEYS.WINNERS, JSON.stringify(winners)); }, [winners]);
@@ -108,44 +117,80 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem(LS_KEYS.TITLE, JSON.stringify(bingoTitle)); }, [bingoTitle]);
   useEffect(() => { localStorage.setItem(LS_KEYS.SUBTITLE, JSON.stringify(bingoSubtitle)); }, [bingoSubtitle]);
   useEffect(() => { localStorage.setItem(LS_KEYS.SHEET_URL, JSON.stringify(sheetUrl)); }, [sheetUrl]);
+  useEffect(() => { localStorage.setItem(LS_KEYS.AUTO_SYNC, JSON.stringify(autoSync)); }, [autoSync]);
+  useEffect(() => { localStorage.setItem(LS_KEYS.SYNC_INTERVAL, JSON.stringify(syncInterval)); }, [syncInterval]);
 
   // Carga inicial desde Google Sheets
   useEffect(() => {
     if (sheetUrl) {
-      loadFromCloud();
+      loadFromCloud(); // Carga inicial normal
     }
-  }, []); // Solo al montar
+  }, []); 
 
-  const loadFromCloud = async () => {
-    if (!sheetUrl) return;
-    setIsSyncing(true);
-    const cloudData = await SheetAPI.fetchAll(sheetUrl);
-    if (cloudData) {
-      // Merge strategy: Cloud wins for participants list to ensure consistency
-      setParticipants(cloudData);
-      
-      // Actualizar secuencia de cartones basada en lo importado
-      let maxSeq = 100;
-      cloudData.forEach(p => p.cards.forEach(c => {
-         const num = parseInt(c.id.replace(/\D/g, ''));
-         if (!isNaN(num) && num > maxSeq) maxSeq = num;
-      }));
-      
-      if (maxSeq > gameState.lastCardSequence) {
-         setGameState(prev => ({ ...prev, lastCardSequence: maxSeq }));
-      }
-      
-      // Opcional: Mostrar toast discreto de éxito
-      // console.log("Datos sincronizados con la nube");
+  // Polling Effect (Sincronización automática)
+  useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval>;
+
+    if (autoSync && sheetUrl) {
+        intervalId = setInterval(() => {
+            loadFromCloud(true); // Modo silencioso
+        }, syncInterval);
     }
-    setIsSyncing(false);
+
+    return () => {
+        if (intervalId) clearInterval(intervalId);
+    };
+  }, [autoSync, sheetUrl, syncInterval]);
+
+  const loadFromCloud = async (silent: boolean = false) => {
+    if (!sheetUrl) return;
+    
+    // Si es sync silencioso y ya hay uno en curso, saltamos este ciclo
+    if (silent && isPollingRef.current) return;
+
+    if (silent) isPollingRef.current = true;
+    if (!silent) setIsSyncing(true);
+
+    try {
+      const cloudData = await SheetAPI.fetchAll(sheetUrl);
+      if (cloudData) {
+        setParticipants(prev => {
+            // Comprobación simple para evitar re-renders innecesarios si los datos son idénticos
+            if (JSON.stringify(prev) === JSON.stringify(cloudData)) {
+                return prev;
+            }
+            return cloudData;
+        });
+        
+        // Actualizar secuencia de cartones basada en lo importado
+        let maxSeq = 100;
+        cloudData.forEach(p => p.cards.forEach(c => {
+           const num = parseInt(c.id.replace(/\D/g, ''));
+           if (!isNaN(num) && num > maxSeq) maxSeq = num;
+        }));
+        
+        setGameState(prev => {
+            if (maxSeq > prev.lastCardSequence) {
+               return { ...prev, lastCardSequence: maxSeq };
+            }
+            return prev;
+        });
+      }
+    } catch (error) {
+        console.error("Error polling:", error);
+    } finally {
+        if (silent) isPollingRef.current = false;
+        if (!silent) setIsSyncing(false);
+    }
   };
 
-  // Helper para sincronizar un cambio específico
+  // Helper para sincronizar un cambio específico inmediatamente
   const syncToCloud = async (action: 'save' | 'delete' | 'deleteAll', data?: any) => {
-    if (!sheetUrl) return; // Si no hay URL configurada, solo trabaja local
+    if (!sheetUrl) return; 
 
-    setIsSyncing(true);
+    // Indicador visual solo para acciones de escritura, aunque podríamos dejarlo en background
+    // Para feedback inmediato, lo mostramos.
+    setIsSyncing(true); 
     try {
         if (action === 'save' && data) {
           await SheetAPI.syncParticipant(sheetUrl, data);
@@ -154,6 +199,8 @@ const App: React.FC = () => {
         } else if (action === 'deleteAll') {
           await SheetAPI.deleteAll(sheetUrl);
         }
+        // Opcional: recargar inmediatamente después de guardar para asegurar consistencia
+        // await loadFromCloud(true); 
     } catch (error) {
         console.error("Error sync:", error);
     } finally {
@@ -236,7 +283,7 @@ const App: React.FC = () => {
     setGameState(prev => ({ ...prev, lastCardSequence: currentSeq }));
     addLog(`Registrado ${newParticipant.name} con ${cardsCount} cartones`);
 
-    // 2. Sync to Cloud (Background) - Don't await to keep UI snappy, but we handle state
+    // 2. Sync to Cloud (Background)
     syncToCloud('save', newParticipant);
 
     const successActions: AlertAction[] = [];
@@ -841,12 +888,16 @@ const App: React.FC = () => {
       {showConnectionModal && (
         <ConnectionModal 
           currentUrl={sheetUrl}
-          onSave={(url) => {
+          currentAutoSync={autoSync}
+          currentInterval={syncInterval}
+          onSave={(url, newAutoSync, newInterval) => {
               setSheetUrl(url);
-              loadFromCloud(); // Recargar al guardar nueva URL
+              setAutoSync(newAutoSync);
+              setSyncInterval(newInterval);
+              loadFromCloud(false); // Trigger manual load on save
           }}
           onClose={() => setShowConnectionModal(false)}
-          onSyncNow={loadFromCloud}
+          onSyncNow={() => loadFromCloud(false)}
         />
       )}
 
@@ -900,13 +951,13 @@ const App: React.FC = () => {
              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${sheetUrl ? (isSyncing ? 'bg-amber-900/30 text-amber-400 border-amber-500/50' : 'bg-emerald-900/30 text-emerald-400 border-emerald-500/50') : 'bg-slate-800 text-slate-500 border-slate-700 hover:bg-slate-700'}`}
              title={sheetUrl ? "Conectado a Google Sheets" : "Configurar Nube"}
            >
-             {isSyncing ? <Loader2 size={14} className="animate-spin" /> : <Cloud size={14} />}
-             <span className="hidden sm:inline">{sheetUrl ? (isSyncing ? 'Sincronizando...' : 'Online') : 'Offline'}</span>
+             {isSyncing ? <Loader2 size={14} className="animate-spin" /> : (autoSync ? <Zap size={14} className="text-yellow-400 fill-yellow-400" /> : <Cloud size={14} />)}
+             <span className="hidden sm:inline">{sheetUrl ? (isSyncing ? 'Sincronizando...' : (autoSync ? 'Auto-Sync ON' : 'Online')) : 'Offline'}</span>
            </button>
 
            {sheetUrl && !isSyncing && (
                <button 
-                 onClick={loadFromCloud}
+                 onClick={() => loadFromCloud(false)}
                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-emerald-400 border border-slate-700"
                  title="Forzar actualización desde Hoja de Cálculo"
                >
