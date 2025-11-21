@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Lock, User, LogIn, AlertCircle, Settings } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { Lock, User, LogIn, AlertCircle } from 'lucide-react';
 
 interface LoginProps {
     onLogin: (user: string, pass: string) => Promise<boolean>;
@@ -11,6 +12,20 @@ const Login: React.FC<LoginProps> = ({ onLogin, isLoading, onOpenSettings }) => 
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+
+    // Implementación del atajo de teclado secreto
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Detectar Ctrl + Shift + K
+            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                onOpenSettings();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onOpenSettings]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,16 +51,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, isLoading, onOpenSettings }) => 
             </div>
 
             <div className="w-full max-w-md relative z-10">
-                {/* Settings Button - Top Right */}
-                <button
-                    onClick={onOpenSettings}
-                    className="absolute -top-2 -right-2 p-3 bg-slate-800/90 hover:bg-slate-700 border border-slate-700 hover:border-cyan-500/50 rounded-xl text-slate-400 hover:text-cyan-400 transition-all shadow-lg z-20"
-                    title="Configurar URL de Google Sheets"
-                    type="button"
-                >
-                    <Settings size={20} />
-                </button>
-
+                
                 <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 shadow-2xl backdrop-blur-xl">
                     <div className="text-center mb-8">
                         <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-cyan-500/20 mb-4">
