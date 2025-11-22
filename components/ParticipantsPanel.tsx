@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Search, Users, Medal, Ticket, Edit2, Trash2, Save, X, Eye, EyeOff, CreditCard, ChevronDown, ChevronUp, ScanEye, Phone, Fingerprint, MessageCircle, FileText, MoreVertical } from 'lucide-react';
+import { Search, Users, Medal, Ticket, Edit2, Trash2, Save, X, Eye, EyeOff, CreditCard, ChevronDown, ChevronUp, ScanEye, Phone, Fingerprint, MessageCircle, FileText, MoreVertical, User } from 'lucide-react';
 import { Participant, Winner, BingoCard as BingoCardType, PatternKey, Prize } from '../types.ts';
 import BingoCard from './BingoCard.tsx';
 import WinnerDetailsModal from './WinnerDetailsModal.tsx';
@@ -22,6 +22,8 @@ interface Props {
   onShareAllCards?: (participant: Participant) => void;
   prizes?: Prize[];
   totalCards?: number;
+  userRole?: 'admin' | 'player';
+  currentUser?: { username: string; fullName?: string; email?: string } | null;
 }
 
 const ParticipantsPanel: React.FC<Props> = ({ 
@@ -38,7 +40,9 @@ const ParticipantsPanel: React.FC<Props> = ({
   onShareCard,
   onShareAllCards,
   prizes = [],
-  totalCards = 0
+  totalCards = 0,
+  userRole = 'admin',
+  currentUser = null
 }) => {
   const { showAlert, showConfirm } = useAlert();
   const [search, setSearch] = useState('');
@@ -64,13 +68,24 @@ const ParticipantsPanel: React.FC<Props> = ({
     : null;
 
   const filteredParticipants = participants.filter(p => {
+    // Si es player, solo mostrar su propio participante
+    if (userRole === 'player' && currentUser) {
+      const matchesCurrentUser = 
+        (currentUser.username && String(p.phone || '').toLowerCase() === String(currentUser.username).toLowerCase()) ||
+        (currentUser.fullName && (
+          String(p.name || '').toLowerCase() === String(currentUser.fullName.split(' ')[0]).toLowerCase() ||
+          `${String(p.name || '').toLowerCase()} ${String(p.surname || '').toLowerCase()}` === String(currentUser.fullName).toLowerCase()
+        ));
+      if (!matchesCurrentUser) return false;
+    }
+
     const term = search.toLowerCase();
     const name = String(p.name || '').toLowerCase();
     const surname = String(p.surname || '').toLowerCase();
     const dni = String(p.dni || '').toLowerCase();
 
     return name.includes(term) || surname.includes(term) || dni.includes(term);
-  });
+  }).reverse();
 
   const startEdit = (p: Participant) => {
     setEditingId(p.id);
@@ -156,6 +171,7 @@ const ParticipantsPanel: React.FC<Props> = ({
           onDownloadCard={onDownloadCard}
           onShareCard={onShareCard ? (cardId) => onShareCard(viewingParticipant, cardId) : undefined}
           onShareAllCards={onShareAllCards ? () => onShareAllCards(viewingParticipant) : undefined}
+          userRole={userRole}
         />
       )}
 
@@ -177,27 +193,33 @@ const ParticipantsPanel: React.FC<Props> = ({
               </h2>
               
               <div className="flex gap-1">
-                <button
-                  onClick={toggleGlobalCards}
-                  className={`p-1 rounded transition-colors border border-slate-700 ${showCardsGlobal ? 'bg-slate-800 text-slate-400 hover:text-cyan-400' : 'bg-cyan-900/30 text-cyan-400 border-cyan-800'}`}
-                  title={showCardsGlobal ? "Ocultar TODOS los cartones" : "Mostrar TODOS los cartones"}
-                >
-                  <CreditCard size={14} />
-                </button>
-                <button
-                  onClick={() => setHideParticipants(!hideParticipants)}
-                  className={`p-1 rounded transition-colors border border-slate-700 ${hideParticipants ? 'bg-cyan-900/30 text-cyan-400 border-cyan-800' : 'bg-slate-800 text-slate-400 hover:text-cyan-400'}`}
-                  title={hideParticipants ? "Mostrar nombres" : "Ocultar nombres (Privacidad)"}
-                >
-                  {hideParticipants ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-                <button
-                  onClick={onDeleteAllParticipants}
-                  className="p-1 rounded transition-colors border border-slate-700 bg-slate-800 text-slate-400 hover:bg-rose-950/50 hover:text-rose-400 hover:border-rose-800/50"
-                  title="Eliminar TODOS los participantes"
-                >
-                  <Trash2 size={14} />
-                </button>
+                {userRole === 'admin' && (
+                  <button
+                    onClick={toggleGlobalCards}
+                    className={`p-1 rounded transition-colors border border-slate-700 ${showCardsGlobal ? 'bg-slate-800 text-slate-400 hover:text-cyan-400' : 'bg-cyan-900/30 text-cyan-400 border-cyan-800'}`}
+                    title={showCardsGlobal ? "Ocultar TODOS los cartones" : "Mostrar TODOS los cartones"}
+                  >
+                    <CreditCard size={14} />
+                  </button>
+                )}
+                {userRole === 'admin' && (
+                  <button
+                    onClick={() => setHideParticipants(!hideParticipants)}
+                    className={`p-1 rounded transition-colors border border-slate-700 ${hideParticipants ? 'bg-cyan-900/30 text-cyan-400 border-cyan-800' : 'bg-slate-800 text-slate-400 hover:text-cyan-400'}`}
+                    title={hideParticipants ? "Mostrar nombres" : "Ocultar nombres (Privacidad)"}
+                  >
+                    {hideParticipants ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                )}
+                {userRole === 'admin' && (
+                  <button
+                    onClick={onDeleteAllParticipants}
+                    className="p-1 rounded transition-colors border border-slate-700 bg-slate-800 text-slate-400 hover:bg-rose-950/50 hover:text-rose-400 hover:border-rose-800/50"
+                    title="Eliminar TODOS los participantes"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -352,12 +374,23 @@ const ParticipantsPanel: React.FC<Props> = ({
                       </div>
                     ) : (
                       <div className="flex flex-col justify-center h-full gap-1.5">
-                        <h3 
-                          className={`text-sm font-bold text-white truncate leading-tight ${hideParticipants ? 'blur-sm select-none' : ''}`}
-                          title={`${p.name} ${p.surname}`}
-                        >
-                          {p.name} {p.surname}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <h3 
+                            className={`text-sm font-bold text-white truncate leading-tight ${hideParticipants ? 'blur-sm select-none' : ''}`}
+                            title={`${p.name} ${p.surname}`}
+                          >
+                            {p.name} {p.surname}
+                          </h3>
+                          {userRole === 'player' && (
+                            <button 
+                              onClick={() => setViewingParticipantId(p.id)}
+                              className="p-1 text-slate-400 hover:text-cyan-400 hover:bg-cyan-950/30 rounded transition-colors flex-shrink-0"
+                              title="Ver Detalles"
+                            >
+                              <User size={14} />
+                            </button>
+                          )}
+                        </div>
                         
                         <div className={`flex flex-wrap gap-2 ${hideParticipants ? 'blur-sm select-none' : ''}`}>
                           <span className="flex items-center gap-1.5 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-[9px] text-slate-400 font-medium" title="DNI">
@@ -379,79 +412,85 @@ const ParticipantsPanel: React.FC<Props> = ({
                 {!isEditing && (
                   <div className="bg-slate-950/30 border-t border-slate-800 pl-5 pr-3 py-1.5 flex items-center justify-between gap-2">
                     
-                    <button 
-                      onClick={() => toggleIndividualCard(p.id)}
-                      className={`
-                        flex-1 text-[10px] font-medium px-2 py-1.5 rounded transition-all flex items-center justify-center gap-1
-                        ${isExpanded 
-                          ? 'text-cyan-400 bg-cyan-950/20 border border-cyan-900/30' 
-                          : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300'
-                        }
-                      `}
-                      title={isExpanded ? "Ocultar cartones" : "Ver cartones"}
-                    >
-                      {isExpanded ? "Ocultar" : "Ver Cartones"}
-                      {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                    </button>
+                    {userRole === 'admin' && (
+                      <button 
+                        onClick={() => toggleIndividualCard(p.id)}
+                        className={`
+                          flex-1 text-[10px] font-medium px-2 py-1.5 rounded transition-all flex items-center justify-center gap-1
+                          ${isExpanded 
+                            ? 'text-cyan-400 bg-cyan-950/20 border border-cyan-900/30' 
+                            : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300'
+                          }
+                        `}
+                        title={isExpanded ? "Ocultar cartones" : "Ver cartones"}
+                      >
+                        {isExpanded ? "Ocultar" : "Ver Cartones"}
+                        {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                      </button>
+                    )}
 
-                    <div className="h-4 w-px bg-slate-800 mx-1"></div>
+                    {userRole === 'admin' && (
+                      <>
+                        <div className="h-4 w-px bg-slate-800 mx-1"></div>
 
-                    <div className="flex items-center gap-1">
-                       {p.phone && p.cards.length > 0 && (
-                          <button 
-                            onClick={() => onShareAllCards && onShareAllCards(p)}
-                            className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-emerald-950/30 rounded-md transition-colors"
-                            title="Compartir Todo"
+                        <div className="flex items-center gap-1">
+                           {p.phone && p.cards.length > 0 && (
+                              <button 
+                                onClick={() => onShareAllCards && onShareAllCards(p)}
+                                className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-emerald-950/30 rounded-md transition-colors"
+                                title="Compartir Todo"
+                              >
+                                <FileText size={14} />
+                              </button>
+                           )}
+
+                           <button 
+                            onClick={() => setViewingParticipantId(p.id)}
+                            className="p-1.5 text-slate-400 hover:text-cyan-400 hover:bg-cyan-950/30 rounded-md transition-colors"
+                            title="Ver Detalles"
                           >
-                            <FileText size={14} />
+                            <User size={14} />
                           </button>
-                       )}
 
-                       <button 
-                        onClick={() => setViewingParticipantId(p.id)}
-                        className="p-1.5 text-slate-400 hover:text-cyan-400 hover:bg-cyan-950/30 rounded-md transition-colors"
-                        title="Ver Detalles"
-                      >
-                        <ScanEye size={14} />
-                      </button>
+                          <button 
+                            onClick={() => startEdit(p)}
+                            className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-amber-950/30 rounded-md transition-colors"
+                            title="Editar"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          
+                          <button 
+                            onClick={() => onDeleteParticipant(p.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-md transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={14} />
+                          </button>
 
-                      <button 
-                        onClick={() => startEdit(p)}
-                        className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-amber-950/30 rounded-md transition-colors"
-                        title="Editar"
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      
-                      <button 
-                        onClick={() => onDeleteParticipant(p.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-md transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                          <div className="w-px h-4 bg-slate-800 mx-1"></div>
 
-                      <div className="w-px h-4 bg-slate-800 mx-1"></div>
-
-                      <button 
-                        onClick={async () => {
-                           const confirm = await showConfirm({ 
-                               title: 'Cartón Extra', 
-                               message: `¿Estás seguro de añadir un cartón extra a ${p.name} ${p.surname}?`,
-                               type: 'confirm',
-                               confirmText: 'Sí, añadir'
-                           });
-                           if (confirm) {
-                              onAddCard(p.id);
-                           }
-                        }}
-                        className="flex items-center gap-1 pl-1.5 pr-2 py-1 rounded bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-500 hover:text-emerald-400 border border-emerald-500/20 transition-all shadow-sm"
-                        title="Agregar cartón extra"
-                      >
-                        <Ticket size={12} /> 
-                        <span className="text-[10px] font-bold">+1</span>
-                      </button>
-                    </div>
+                          <button 
+                            onClick={async () => {
+                               const confirm = await showConfirm({ 
+                                   title: 'Cartón Extra', 
+                                   message: `¿Estás seguro de añadir un cartón extra a ${p.name} ${p.surname}?`,
+                                   type: 'confirm',
+                                   confirmText: 'Sí, añadir'
+                               });
+                               if (confirm) {
+                                  onAddCard(p.id);
+                               }
+                            }}
+                            className="flex items-center gap-1 pl-1.5 pr-2 py-1 rounded bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-500 hover:text-emerald-400 border border-emerald-500/20 transition-all shadow-sm"
+                            title="Agregar cartón extra"
+                          >
+                            <Ticket size={12} /> 
+                            <span className="text-[10px] font-bold">+1</span>
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
                 
@@ -468,6 +507,7 @@ const ParticipantsPanel: React.FC<Props> = ({
                         hasPhone={!!p.phone}
                         isCompact={true}
                         currentPattern={currentPattern}
+                        userRole={userRole}
                       />
                     ))}
                   </div>

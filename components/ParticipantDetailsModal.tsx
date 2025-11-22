@@ -16,6 +16,7 @@ interface Props {
   onDownloadCard: (participant: Participant, cardId: string) => void;
   onShareCard?: (cardId: string) => void;
   onShareAllCards?: () => void;
+  userRole?: 'admin' | 'player';
 }
 
 const ParticipantDetailsModal: React.FC<Props> = ({ 
@@ -29,7 +30,8 @@ const ParticipantDetailsModal: React.FC<Props> = ({
   onDeleteCard,
   onDownloadCard,
   onShareCard,
-  onShareAllCards
+  onShareAllCards,
+  userRole = 'admin'
 }) => {
   const { showConfirm } = useAlert();
   const [isEditing, setIsEditing] = useState(false);
@@ -190,24 +192,26 @@ const ParticipantDetailsModal: React.FC<Props> = ({
               </div>
            ) : (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                  <button 
-                    onClick={async () => {
-                      const confirm = await showConfirm({ 
-                          title: 'Agregar Cartón',
-                          message: `¿Estás seguro de añadir un cartón extra a ${participant.name} ${participant.surname}?`,
-                          confirmText: 'Sí, añadir'
-                      });
-                      if (confirm) {
-                        onAddCard();
-                      }
-                    }}
-                    className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 hover:border-emerald-500/30 rounded-xl py-3 transition-all group shadow-lg shadow-black/20"
-                  >
-                    <div className="bg-emerald-500/10 p-1.5 rounded-lg group-hover:bg-emerald-500/20 transition-colors">
-                      <Plus size={18} />
-                    </div>
-                    <span className="font-bold text-sm">Agregar Cartón</span>
-                  </button>
+                  {userRole === 'admin' && (
+                    <button 
+                      onClick={async () => {
+                        const confirm = await showConfirm({ 
+                            title: 'Agregar Cartón',
+                            message: `¿Estás seguro de añadir un cartón extra a ${participant.name} ${participant.surname}?`,
+                            confirmText: 'Sí, añadir'
+                        });
+                        if (confirm) {
+                          onAddCard();
+                        }
+                      }}
+                      className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 hover:border-emerald-500/30 rounded-xl py-3 transition-all group shadow-lg shadow-black/20"
+                    >
+                      <div className="bg-emerald-500/10 p-1.5 rounded-lg group-hover:bg-emerald-500/20 transition-colors">
+                        <Plus size={18} />
+                      </div>
+                      <span className="font-bold text-sm">Agregar Cartón</span>
+                    </button>
+                  )}
 
                   {participant.phone && participant.cards.length > 0 && onShareAllCards && (
                      <button 
@@ -231,15 +235,17 @@ const ParticipantDetailsModal: React.FC<Props> = ({
                     <span className="font-bold text-sm">Editar Datos</span>
                   </button>
 
-                  <button 
-                    onClick={onDelete}
-                    className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-rose-400 border border-slate-700 hover:border-rose-500/30 rounded-xl py-3 transition-all group shadow-lg shadow-black/20"
-                  >
-                    <div className="bg-rose-500/10 p-1.5 rounded-lg group-hover:bg-rose-500/20 transition-colors">
-                      <Trash2 size={18} />
-                    </div>
-                    <span className="font-bold text-sm">Eliminar</span>
-                  </button>
+                  {userRole === 'admin' && (
+                    <button 
+                      onClick={onDelete}
+                      className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-rose-400 border border-slate-700 hover:border-rose-500/30 rounded-xl py-3 transition-all group shadow-lg shadow-black/20"
+                    >
+                      <div className="bg-rose-500/10 p-1.5 rounded-lg group-hover:bg-rose-500/20 transition-colors">
+                        <Trash2 size={18} />
+                      </div>
+                      <span className="font-bold text-sm">Eliminar</span>
+                    </button>
+                  )}
               </div>
            )}
 
@@ -268,6 +274,7 @@ const ParticipantDetailsModal: React.FC<Props> = ({
                             isCompact={true}
                             currentPattern={currentPattern}
                             readOnly={false}
+                            userRole={userRole}
                          />
                       </div>
                    ))}
@@ -276,21 +283,23 @@ const ParticipantDetailsModal: React.FC<Props> = ({
                 <div className="flex flex-col items-center justify-center py-12 text-slate-500 bg-slate-950/30 rounded-2xl border border-dashed border-slate-800">
                    <Ticket size={48} className="mb-4 opacity-20" />
                    <p>Este participante no tiene cartones asignados.</p>
-                   <button 
-                    onClick={async () => {
-                        const confirm = await showConfirm({ 
-                            title: 'Agregar Cartón',
-                            message: `¿Estás seguro de añadir un cartón extra a ${participant.name} ${participant.surname}?`,
-                            confirmText: 'Sí, añadir'
-                        });
-                        if (confirm) {
-                          onAddCard();
-                        }
-                    }} 
-                    className="mt-4 text-emerald-500 hover:text-emerald-400 text-sm font-medium underline"
-                   >
-                      Asignar un cartón ahora
-                   </button>
+                   {userRole === 'admin' && (
+                     <button 
+                      onClick={async () => {
+                          const confirm = await showConfirm({ 
+                              title: 'Agregar Cartón',
+                              message: `¿Estás seguro de añadir un cartón extra a ${participant.name} ${participant.surname}?`,
+                              confirmText: 'Sí, añadir'
+                          });
+                          if (confirm) {
+                            onAddCard();
+                          }
+                      }} 
+                      className="mt-4 text-emerald-500 hover:text-emerald-400 text-sm font-medium underline"
+                     >
+                        Asignar un cartón ahora
+                     </button>
+                   )}
                 </div>
              )}
            </div>

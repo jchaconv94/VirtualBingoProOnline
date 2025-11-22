@@ -6,37 +6,67 @@ export interface ApiResponse {
   data?: any;
   message?: string;
   error?: string;
+  role?: 'admin' | 'player';
+  userData?: {
+    username: string;
+    fullName?: string;
+    email?: string;
+    phone?: string;
+  };
+  credentials?: {
+    username: string;
+    password: string;
+  };
 }
 
 export const SheetAPI = {
   // Método para autenticación
   async login(url: string, user: string, pass: string): Promise<ApiResponse> {
     try {
-        const endpoint = `${url}?action=login`;
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            body: JSON.stringify({ user, pass }),
-            headers: {
-                'Content-Type': 'text/plain;charset=utf-8',
-            },
-        });
-        const json = await response.json();
-        return json;
+      const endpoint = `${url}?action=login`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({ user, pass }),
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+      });
+      const json = await response.json();
+      return json;
     } catch (error) {
-        console.error("Login Error:", error);
-        return { success: false, error: String(error) };
+      console.error("Login Error:", error);
+      return { success: false, error: String(error) };
+    }
+  },
+
+  // Método para registro de nuevos usuarios
+  async register(url: string, fullName: string, email: string, phone: string): Promise<ApiResponse> {
+    try {
+      const endpoint = `${url}?action=register`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({ fullName, email, phone }),
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+      });
+      const json = await response.json();
+      return json;
+    } catch (error) {
+      console.error("Register Error:", error);
+      return { success: false, error: String(error) };
     }
   },
 
   // Método genérico para enviar datos (Google Apps Script requiere POST para payloads JSON o GET para queries simples)
   // Usamos "no-cors" en fetch standard, pero para recibir respuesta JSON de GAS necesitamos un truco.
   // GAS devuelve redirects, fetch los sigue.
-  
+
   async syncParticipant(url: string, participant: Participant): Promise<ApiResponse> {
     try {
       // Usamos el parámetro ?action=save en la URL y enviamos el body
       const endpoint = `${url}?action=save`;
-      
+
       // Para evitar problemas de CORS con GAS, usamos text/plain
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -45,7 +75,7 @@ export const SheetAPI = {
           'Content-Type': 'text/plain;charset=utf-8',
         },
       });
-      
+
       const json = await response.json();
       return json;
     } catch (error) {
@@ -70,15 +100,15 @@ export const SheetAPI = {
 
   async deleteAll(url: string): Promise<ApiResponse> {
     try {
-        const endpoint = `${url}?action=delete_all`;
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        });
-        const json = await response.json();
-        return json;
+      const endpoint = `${url}?action=delete_all`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      });
+      const json = await response.json();
+      return json;
     } catch (error) {
-        return { success: false, error: String(error) };
+      return { success: false, error: String(error) };
     }
   },
 
@@ -87,7 +117,7 @@ export const SheetAPI = {
       const endpoint = `${url}?action=read`;
       const response = await fetch(endpoint);
       const json = await response.json();
-      
+
       if (json.success && Array.isArray(json.data)) {
         return json.data as Participant[];
       }

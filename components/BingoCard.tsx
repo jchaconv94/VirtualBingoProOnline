@@ -14,6 +14,7 @@ interface Props {
   isCompact?: boolean;
   currentPattern?: PatternKey; // Optional, defaults to FULL if not provided
   readOnly?: boolean;
+  userRole?: 'admin' | 'player';
 }
 
 const BingoCard: React.FC<Props> = ({ 
@@ -25,7 +26,8 @@ const BingoCard: React.FC<Props> = ({
   hasPhone = false,
   isCompact = false, 
   currentPattern = 'FULL',
-  readOnly = false
+  readOnly = false,
+  userRole = 'admin'
 }) => {
   
   const isInvalid = card.isInvalid;
@@ -104,7 +106,7 @@ const BingoCard: React.FC<Props> = ({
           
           {!readOnly && (
             <div className="flex gap-1 pl-2 border-l border-slate-800 ml-1 relative z-50">
-              {hasPhone && onShare && (
+              {userRole === 'admin' && hasPhone && onShare && (
                 <button 
                   onClick={() => onShare(card.id)} 
                   className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-950/50 transition-colors"
@@ -120,13 +122,15 @@ const BingoCard: React.FC<Props> = ({
               >
                 <Download size={isCompact ? 14 : 16} />
               </button>
-              <button 
-                onClick={() => onDelete(card.id)} 
-                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/50 transition-colors"
-                title="Eliminar"
-              >
-                <Trash2 size={isCompact ? 14 : 16} />
-              </button>
+              {userRole === 'admin' && (
+                <button 
+                  onClick={() => onDelete(card.id)} 
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/50 transition-colors"
+                  title="Eliminar"
+                >
+                  <Trash2 size={isCompact ? 14 : 16} />
+                </button>
+              )}
             </div>
           )}
         </div>

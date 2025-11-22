@@ -16,6 +16,7 @@ interface Props {
   onShareCard?: (cardId: string) => void;
   prizes?: Prize[];
   allWinners?: Winner[];
+  userRole?: 'admin' | 'player';
 }
 
 const WinnerDetailsModal: React.FC<Props> = ({ 
@@ -29,7 +30,8 @@ const WinnerDetailsModal: React.FC<Props> = ({
   onDownloadCard,
   onShareCard,
   prizes = [],
-  allWinners = []
+  allWinners = [],
+  userRole = 'admin'
 }) => {
 
   // --- PRIZE CALCULATION LOGIC ---
@@ -222,7 +224,8 @@ const WinnerDetailsModal: React.FC<Props> = ({
                   hasPhone={!!participant.phone}
                   isCompact={false}
                   currentPattern={displayPattern}
-                  readOnly={!isLiveCard} // Disable actions if snapshot
+                  readOnly={!isLiveCard}
+                  userRole={userRole}
                 />
               </div>
             </div>
