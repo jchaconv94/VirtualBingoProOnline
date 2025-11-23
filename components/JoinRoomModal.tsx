@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Lock } from 'lucide-react';
+import { X, Lock, Coins } from 'lucide-react';
 
 interface JoinRoomModalProps {
   room: any;
@@ -40,6 +40,20 @@ const JoinRoomModal: React.FC<JoinRoomModalProps> = ({ room, onClose, onJoin }) 
             <p className="text-slate-300">Sala: <span className="font-bold text-white">{room.name}</span></p>
             <p className="text-slate-500 text-sm">ID: {room.id}</p>
           </div>
+
+          {typeof room.pricePerCard === 'number' && (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-900/70 border border-slate-800">
+              <div className="p-2 rounded-full bg-emerald-500/10 text-emerald-300">
+                <Coins size={18} />
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wide">Precio por cartón</p>
+                <p className="text-white font-semibold">
+                  {new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', minimumFractionDigits: 2 }).format(room.pricePerCard)}
+                </p>
+              </div>
+            </div>
+          )}
 
           {room.isPrivate && (
             <div>

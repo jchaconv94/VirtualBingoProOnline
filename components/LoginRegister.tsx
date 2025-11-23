@@ -7,6 +7,9 @@ interface LoginRegisterProps {
     onRegister: (data: RegisterData) => Promise<{ success: boolean; message?: string; credentials?: { username: string; password: string } }>;
     isLoading: boolean;
     onOpenSettings: () => void;
+    variant?: 'page' | 'modal';
+    initialMode?: 'login' | 'register';
+    onClose?: () => void;
 }
 
 export interface RegisterData {
@@ -15,8 +18,8 @@ export interface RegisterData {
     phone: string;
 }
 
-const LoginRegister: React.FC<LoginRegisterProps> = ({ onLogin, onRegister, isLoading, onOpenSettings }) => {
-    const [mode, setMode] = useState<'login' | 'register'>('login');
+const LoginRegister: React.FC<LoginRegisterProps> = ({ onLogin, onRegister, isLoading, onOpenSettings, variant = 'page', initialMode = 'login', onClose }) => {
+    const [mode, setMode] = useState<'login' | 'register'>(initialMode);
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -38,11 +41,19 @@ const LoginRegister: React.FC<LoginRegisterProps> = ({ onLogin, onRegister, isLo
                 e.preventDefault();
                 onOpenSettings();
             }
+
+            if (variant === 'modal' && e.key === 'Escape' && onClose) {
+                onClose();
+            }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onOpenSettings]);
+    }, [onOpenSettings, onClose, variant]);
+
+    useEffect(() => {
+        setMode(initialMode);
+    }, [initialMode]);
 
     const handleLoginSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -103,17 +114,30 @@ const LoginRegister: React.FC<LoginRegisterProps> = ({ onLogin, onRegister, isLo
         setGeneratedCredentials(null);
     };
 
+    const isModal = variant === 'modal';
+
     return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
+        <div className={isModal ? "fixed inset-0 z-[400] flex items-center justify-center p-4 bg-black/70 backdrop-blur" : "min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden"}>
             {/* Background Effects */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-500/10 rounded-full blur-[100px]"></div>
-                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[100px]"></div>
-            </div>
+            {!isModal && (
+                <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+                    <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-500/10 rounded-full blur-[100px]"></div>
+                    <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[100px]"></div>
+                </div>
+            )}
 
             <div className="w-full max-w-md relative z-10">
 
-                <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 shadow-2xl backdrop-blur-xl">
+                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-8 shadow-2xl backdrop-blur-xl relative">
+                    {isModal && onClose && (
+                        <button
+                            onClick={onClose}
+                            className="absolute top-4 right-4 text-slate-500 hover:text-white"
+                            aria-label="Cerrar"
+                        >
+                            ✕
+                        </button>
+                    )}
                     {mode === 'login' ? (
                         <>
                             {/* Login Form */}
@@ -323,9 +347,11 @@ const LoginRegister: React.FC<LoginRegisterProps> = ({ onLogin, onRegister, isLo
                     )}
                 </div>
 
-                <div className="text-center mt-6 text-slate-500 text-xs">
-                    &copy; {new Date().getFullYear()} Virtual Bingo Pro. Todos los derechos reservados.
-                </div>
+                {!isModal && (
+                    <div className="text-center mt-6 text-slate-500 text-xs">
+                        &copy; {new Date().getFullYear()} Virtual Bingo Pro. Todos los derechos reservados.
+                    </div>
+                )}
             </div>
         </div>
     );

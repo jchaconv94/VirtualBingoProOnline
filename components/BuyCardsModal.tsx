@@ -8,6 +8,12 @@ interface Props {
     pricePerCard?: number; // Opcional, por si implementamos precios luego
 }
 
+const currencyFormatter = new Intl.NumberFormat('es-PE', {
+    style: 'currency',
+    currency: 'PEN',
+    minimumFractionDigits: 2
+});
+
 const BuyCardsModal: React.FC<Props> = ({ onClose, onBuy, isLoading = false, pricePerCard = 5 }) => {
     const [quantity, setQuantity] = useState(1);
 
@@ -23,7 +29,8 @@ const BuyCardsModal: React.FC<Props> = ({ onClose, onBuy, isLoading = false, pri
         setQuantity(num);
     };
 
-    const total = quantity * pricePerCard;
+    const unitPrice = pricePerCard > 0 ? pricePerCard : 0;
+    const total = quantity * unitPrice;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -106,18 +113,19 @@ const BuyCardsModal: React.FC<Props> = ({ onClose, onBuy, isLoading = false, pri
                     </div>
 
                     {/* Summary Card */}
-                    <div className="bg-slate-950/50 rounded-xl p-4 border border-slate-800 flex justify-between items-center">
+                    <div className="bg-slate-950/50 rounded-xl p-4 border border-slate-800 space-y-3">
                         <div className="flex items-center gap-3">
                             <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
                                 <CreditCard size={18} className="text-blue-400" />
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-xs text-slate-400">Total a Pagar</span>
-                                <span className="text-sm font-bold text-white">Simulado</span>
+                                <span className="text-xs text-slate-400 uppercase tracking-wide">Precio unitario</span>
+                                <span className="text-sm font-bold text-white">{currencyFormatter.format(unitPrice)}</span>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <span className="text-2xl font-black text-emerald-400">S/ {total}.00</span>
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs text-slate-400 uppercase tracking-wide">Total a pagar</span>
+                            <span className="text-2xl font-black text-emerald-400">{currencyFormatter.format(total)}</span>
                         </div>
                     </div>
 

@@ -118,6 +118,7 @@ function initializeROOMSSheet() {
     'IdRoom',
     'Nombre',
     'AdminId',
+    'PrecioCarton',
     'Password', // Optional, can be empty
     'IsPrivate', // Boolean
     'FechaCreacion',
@@ -592,10 +593,12 @@ function createRoom(roomData) {
     const roomId = generateRoomId();
     const timestamp = new Date().toISOString();
     
+    const pricePerCard = Number(roomData.pricePerCard) || 0;
     const newRow = [
       roomId,
       roomData.name,
       roomData.adminId,
+      pricePerCard,
       roomData.password || '',
       roomData.password ? true : false,
       timestamp,
@@ -612,7 +615,8 @@ function createRoom(roomData) {
         name: roomData.name,
         adminId: roomData.adminId,
         isPrivate: !!roomData.password,
-        createdAt: timestamp
+        createdAt: timestamp,
+        pricePerCard: pricePerCard
       }
     };
     
@@ -643,13 +647,14 @@ function getActiveRooms() {
     // Skip header
     for (let i = 1; i < data.length; i++) {
       // Check if active (Column 6 is Estado)
-      if (data[i][6] === 'ACTIVE') {
+      if (data[i][7] === 'ACTIVE') {
         rooms.push({
           id: data[i][0],
           name: data[i][1],
           adminId: data[i][2],
-          isPrivate: data[i][4], // Boolean column
-          createdAt: data[i][5]
+          pricePerCard: Number(data[i][3]) || 0,
+          isPrivate: data[i][5], // Boolean column
+          createdAt: data[i][6]
         });
       }
     }
@@ -685,7 +690,7 @@ function joinRoom(roomId, userId, password) {
     let found = null;
 
     for (let i = 1; i < roomsData.length; i++) {
-      if (roomsData[i][0] === roomId && roomsData[i][6] === 'ACTIVE') {
+      if (roomsData[i][0] === roomId && roomsData[i][7] === 'ACTIVE') {
         found = roomsData[i];
         break;
       }
@@ -693,8 +698,10 @@ function joinRoom(roomId, userId, password) {
 
     if (!found) return { success: false, message: 'Sala no encontrada o no activa' };
 
-    const roomPassword = found[3] || '';
-    const isPrivate = !!found[4];
+    const roomPassword = found[4] || '';
+    const isPrivate = !!found[5];
+    const roomPrice = Number(found[3]) || 0;
+    const createdAt = found[6];
 
     if (isPrivate && String(roomPassword) !== String(password || '')) {
       return { success: false, message: 'Contraseña incorrecta' };
@@ -725,7 +732,16 @@ function joinRoom(roomId, userId, password) {
     const joinedAt = new Date().toISOString();
     partSheet.appendRow([roomId, userId, joinedAt, userName, userEmail]);
 
-    return { success: true, message: 'Unido a la sala', joinedAt };
+    const roomInfo = {
+      id: found[0],
+      name: found[1],
+      adminId: found[2],
+      pricePerCard: roomPrice,
+      isPrivate: isPrivate,
+      createdAt: createdAt
+    };
+
+    return { success: true, message: 'Unido a la sala', joinedAt, room: roomInfo };
 
   } catch (error) {
     Logger.log('Error in joinRoom: ' + error.toString());

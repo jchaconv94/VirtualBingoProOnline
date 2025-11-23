@@ -13,8 +13,15 @@ import PrizesPanel from './PrizesPanel.tsx';
 import EditTitleModal from './EditTitleModal.tsx';
 import ConnectionModal from './ConnectionModal.tsx';
 import BuyCardsModal from './BuyCardsModal.tsx';
-import { Maximize2, Minimize2, PanelLeftOpen, Edit, FileText, Image as ImageIcon, Cloud, RefreshCw, Loader2, Link, Zap, LogOut, Menu, X, Ticket } from 'lucide-react';
+import PlayerView from './PlayerView.tsx';
+import { Maximize2, Minimize2, PanelLeftOpen, Edit, FileText, Image as ImageIcon, Cloud, RefreshCw, Loader2, Link, Zap, LogOut, Menu, X, Ticket, ShoppingCart, Sparkles } from 'lucide-react';
 import { useAlert, AlertAction } from '../contexts/AlertContext.tsx';
+
+const formatCurrency = (value: number) => new Intl.NumberFormat('es-PE', {
+    style: 'currency',
+    currency: 'PEN',
+    minimumFractionDigits: 2
+}).format(value);
 
 // LocalStorage Keys (Scoped by room if needed, for now global for admin)
 const LS_KEYS = {
@@ -119,8 +126,16 @@ const GameRoom: React.FC<GameRoomProps> = ({
     const [showSidebar, setShowSidebar] = useState(false);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
     const [showBuyModal, setShowBuyModal] = useState(false);
+    const [isProcessingPurchase, setIsProcessingPurchase] = useState(false);
+    const [playerCardsRefreshKey, setPlayerCardsRefreshKey] = useState(0);
 
     const totalCards = participants.reduce((acc, p) => acc + p.cards.length, 0);
+    const cardPrice = typeof roomData?.pricePerCard === 'number' ? roomData.pricePerCard : undefined;
+    const canPurchaseCards = !isRoomAdmin && typeof cardPrice === 'number' && cardPrice > 0;
+
+    const triggerPlayerCardsRefresh = () => {
+        setPlayerCardsRefreshKey(prev => prev + 1);
+    };
 
     // --- Persistence ---
     useEffect(() => { localStorage.setItem(LS_KEYS.PARTICIPANTS, JSON.stringify(participants)); }, [participants]);
@@ -437,15 +452,120 @@ const GameRoom: React.FC<GameRoomProps> = ({
     };
 
     const handleBuyCards = () => {
+        if (!canPurchaseCards) {
+            showAlert({ title: 'Precio no disponible', message: 'Consulta con el administrador para habilitar las compras.', type: 'info' });
+            return;
+        }
         setShowBuyModal(true);
     };
 
     const executeBuyCards = async (quantity: number) => {
-        // This function is mainly for players buying cards for themselves
-        // For admin view, this might not be used directly or needs adaptation
-        // For now, we keep it simple
-        return { success: true, message: 'Función en desarrollo para admin' };
+        if (!currentUser?.userId) {
+            showAlert({ title: 'Sesión inválida', message: 'No encontramos tu usuario. Vuelve a iniciar sesión.', type: 'danger' });
+            return;
+        }
+        if (!sheetUrl) {
+            showAlert({ title: 'Sin conexión', message: 'Configura la conexión con Google Sheets antes de comprar.', type: 'warning' });
+            return;
+        }
+        setIsProcessingPurchase(true);
+        try {
+            for (let i = 0; i < quantity; i++) {
+                const numbers = generateBingoCardNumbers();
+                await SheetAPI.createCard(sheetUrl, currentUser.userId, numbers);
+            }
+
+            const purchaseSummary = cardPrice
+                ? `${quantity} cartones por ${formatCurrency(quantity * cardPrice)}`
+                : `${quantity} cartones generados`;
+
+            showAlert({
+                title: 'Compra exitosa',
+                message: `Listo, ${purchaseSummary}. Pide al administrador que sincronice la sala para verlos.`,
+                type: 'success'
+            });
+            triggerPlayerCardsRefresh();
+            setShowBuyModal(false);
+        } catch (error) {
+            console.error('Error buying cards', error);
+            showAlert({ title: 'Error', message: 'No pudimos procesar la compra. Intenta nuevamente.', type: 'danger' });
+        } finally {
+            setIsProcessingPurchase(false);
+        }
     };
+
+    if (!isRoomAdmin) {
+        const playerProfile = {
+            idUser: currentUser?.userId || '',
+            nombreCompleto: currentUser?.fullName || currentUser?.username || 'Jugador',
+            email: currentUser?.email || '',
+            usuario: currentUser?.username || currentUser?.fullName || 'jugador'
+        };
+
+        if (!playerProfile.idUser && typeof window !== 'undefined') {
+            try {
+                const stored = JSON.parse(sessionStorage.getItem('bingo_user_data') || '{}');
+                playerProfile.idUser = stored.userId || playerProfile.idUser;
+                playerProfile.nombreCompleto = stored.fullName || playerProfile.nombreCompleto;
+                playerProfile.email = stored.email || playerProfile.email;
+                playerProfile.usuario = stored.username || playerProfile.usuario;
+            } catch (error) {
+                console.warn('No se pudo recuperar la sesión del jugador', error);
+            }
+        }
+
+        const playerNotice = (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 space-y-3">
+                <div className="flex items-center gap-2 text-emerald-200 text-xs font-semibold tracking-[0.3em] uppercase">
+                    <Sparkles size={16} /> Sala activa
+                </div>
+                <p className="text-sm text-slate-300">
+                    {cardPrice ? `Cada cartón en esta sala cuesta ${formatCurrency(cardPrice)}. Compra y luego actualiza para verlos al instante.` : 'El administrador aún no define el precio de los cartones en esta sala.'}
+                </p>
+                <div className="flex flex-wrap gap-3 items-center">
+                    <button
+                        onClick={triggerPlayerCardsRefresh}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-700 text-slate-200 rounded-lg text-sm hover:bg-slate-700"
+                    >
+                        <RefreshCw size={16} />
+                        Actualizar cartones
+                    </button>
+                    {typeof cardPrice === 'number' && cardPrice > 0 && (
+                        <div className="flex items-center gap-2 text-sm text-emerald-300">
+                            <Ticket size={16} />
+                            {formatCurrency(cardPrice)} por cartón
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+
+        return (
+            <>
+                <PlayerView
+                    currentUser={playerProfile}
+                    sheetUrl={sheetUrl}
+                    onLogout={onLogout}
+                    bingoTitle={bingoTitle}
+                    bingoSubtitle={bingoSubtitle}
+                    onExitRoom={onExitRoom}
+                    onRequestPurchase={canPurchaseCards ? handleBuyCards : undefined}
+                    purchasePriceLabel={cardPrice ? formatCurrency(cardPrice) : undefined}
+                    customNotice={playerNotice}
+                    refreshSignal={playerCardsRefreshKey}
+                />
+
+                {canPurchaseCards && showBuyModal && (
+                    <BuyCardsModal
+                        onClose={() => setShowBuyModal(false)}
+                        onBuy={executeBuyCards}
+                        isLoading={isProcessingPurchase}
+                        pricePerCard={cardPrice}
+                    />
+                )}
+            </>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative">
@@ -540,6 +660,16 @@ const GameRoom: React.FC<GameRoomProps> = ({
                             </>
                         )}
 
+                        {canPurchaseCards && (
+                            <button
+                                onClick={handleBuyCards}
+                                className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-200 border border-emerald-500/40 hover:bg-emerald-600/30 text-xs font-semibold"
+                            >
+                                <ShoppingCart size={16} />
+                                Comprar ({formatCurrency(cardPrice || 0)})
+                            </button>
+                        )}
+
                         <button onClick={toggleFullScreen} className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700">
                             {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                         </button>
@@ -550,6 +680,15 @@ const GameRoom: React.FC<GameRoomProps> = ({
                                 className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-sm font-medium"
                             >
                                 Salir de Sala
+                            </button>
+                        )}
+
+                        {canPurchaseCards && (
+                            <button
+                                onClick={handleBuyCards}
+                                className="md:hidden px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-200 border border-emerald-500/40 text-xs font-semibold"
+                            >
+                                Comprar cartones
                             </button>
                         )}
 
@@ -656,11 +795,12 @@ const GameRoom: React.FC<GameRoomProps> = ({
                 />
             )}
 
-            {showBuyModal && (
+            {canPurchaseCards && showBuyModal && (
                 <BuyCardsModal
                     onClose={() => setShowBuyModal(false)}
                     onBuy={executeBuyCards}
-                    isLoading={isSyncing}
+                    isLoading={isProcessingPurchase}
+                    pricePerCard={cardPrice}
                 />
             )}
         </div>

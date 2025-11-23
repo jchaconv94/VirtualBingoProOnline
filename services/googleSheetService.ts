@@ -28,6 +28,7 @@ export interface ApiResponse {
     adminId: string;
     isPrivate: boolean;
     createdAt: string;
+    pricePerCard?: number;
   };
   rooms?: {
     id: string;
@@ -35,6 +36,7 @@ export interface ApiResponse {
     adminId: string;
     isPrivate: boolean;
     createdAt: string;
+    pricePerCard?: number;
   }[];
 }
 
@@ -329,7 +331,7 @@ export const SheetAPI = {
   /**
    * Create a new room
    */
-  async createRoom(url: string, roomData: { name: string; password?: string; adminId: string }): Promise<ApiResponse> {
+  async createRoom(url: string, roomData: { name: string; password?: string; adminId: string; pricePerCard: number }): Promise<ApiResponse> {
     try {
       const response = await fetch(url, {
         method: 'POST',

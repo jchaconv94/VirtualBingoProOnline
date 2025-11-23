@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { Ticket, ShoppingCart, Download, FileText, Search, Filter } from 'lucide-react';
+import { Ticket, Download, FileText, Search, Filter, Sparkles, ArrowRight } from 'lucide-react';
 import { CartonData } from '../types.ts';
-import { SheetAPI } from '../services/googleSheetService.ts';
 import { downloadCardImage, generateBingoCardsPDF } from '../services/exportService.ts';
-import BuyCardsModal from './BuyCardsModal.tsx';
 
 interface MyCardsSectionProps {
     userCards: CartonData[];
@@ -13,71 +11,19 @@ interface MyCardsSectionProps {
         email: string;
         usuario: string;
     };
-    sheetUrl: string;
     bingoTitle: string;
     bingoSubtitle: string;
-    onCardsUpdated: () => void;
+    onNavigateToRooms?: () => void;
 }
 
 const MyCardsSection: React.FC<MyCardsSectionProps> = ({
     userCards,
     currentUser,
-    sheetUrl,
     bingoTitle,
     bingoSubtitle,
-    onCardsUpdated
+    onNavigateToRooms
 }) => {
-    const [showBuyModal, setShowBuyModal] = useState(false);
-    const [isBuying, setIsBuying] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-
-    const handleBuyCards = async (quantity: number) => {
-        setIsBuying(true);
-        try {
-            for (let i = 0; i < quantity; i++) {
-                const numbers = generateBingoNumbers();
-                await SheetAPI.createCard(sheetUrl, currentUser.idUser, numbers);
-            }
-
-            await onCardsUpdated();
-            setShowBuyModal(false);
-
-            return { success: true, message: `${quantity} cartón(es) comprado(s) exitosamente` };
-        } catch (error) {
-            console.error('Error buying cards:', error);
-            return { success: false, message: 'Error al comprar cartones' };
-        } finally {
-            setIsBuying(false);
-        }
-    };
-
-    const generateBingoNumbers = (): number[] => {
-        const numbers: number[] = [];
-        const ranges = [
-            [1, 15],   // B column
-            [16, 30],  // I column
-            [31, 45],  // N column (skip center)
-            [46, 60],  // G column
-            [61, 75]   // O column
-        ];
-
-        ranges.forEach((range, colIndex) => {
-            const available = Array.from(
-                { length: range[1] - range[0] + 1 },
-                (_, i) => range[0] + i
-            );
-
-            for (let i = 0; i < 5; i++) {
-                if (colIndex === 2 && i === 2) continue; // Skip center
-
-                const randomIndex = Math.floor(Math.random() * available.length);
-                numbers.push(available[randomIndex]);
-                available.splice(randomIndex, 1);
-            }
-        });
-
-        return numbers;
-    };
 
     const convertToDisplayCard = (carton: CartonData) => {
         const displayNumbers = [...carton.numbers];
@@ -124,18 +70,33 @@ const MyCardsSection: React.FC<MyCardsSectionProps> = ({
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <Ticket className="text-cyan-400" />
-                    Mis Cartones ({userCards.length})
-                </h2>
-                <button
-                    onClick={() => setShowBuyModal(true)}
-                    className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg transition-all transform hover:scale-105"
-                >
-                    <ShoppingCart size={20} />
-                    Comprar Cartones
-                </button>
+            <div className="flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                        <Ticket className="text-cyan-400" />
+                        Mis Cartones ({userCards.length})
+                    </h2>
+                </div>
+
+                <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-slate-900/60 to-slate-950 p-5 text-sm text-emerald-50 flex flex-col gap-3">
+                    <div className="flex items-center gap-2 text-emerald-200 font-semibold tracking-[0.2em] uppercase text-xs">
+                        <Sparkles size={16} /> Compras dentro de la sala
+                    </div>
+                    <p className="text-emerald-50/80">
+                        Las compras de cartones ahora se realizan dentro de cada sala de bingo, donde el administrador define el precio oficial.
+                        Únete a una sala disponible para desbloquear el botón de compra.
+                    </p>
+                    {onNavigateToRooms && (
+                        <button
+                            type="button"
+                            onClick={onNavigateToRooms}
+                            className="self-start inline-flex items-center gap-2 text-sm font-semibold text-emerald-200 hover:text-white transition-colors"
+                        >
+                            Ver salas disponibles
+                            <ArrowRight size={16} />
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Search and Filters */}
@@ -166,15 +127,15 @@ const MyCardsSection: React.FC<MyCardsSectionProps> = ({
                         {searchTerm ? 'No se encontraron cartones' : 'No tienes cartones aún'}
                     </p>
                     <p className="text-slate-500 text-sm mb-6">
-                        {searchTerm ? 'Intenta con otro término de búsqueda' : 'Compra tus primeros cartones para empezar a jugar'}
+                        {searchTerm ? 'Intenta con otro término de búsqueda' : 'Únete a una sala para comprar tus primeros cartones'}
                     </p>
-                    {!searchTerm && (
+                    {!searchTerm && onNavigateToRooms && (
                         <button
-                            onClick={() => setShowBuyModal(true)}
+                            onClick={onNavigateToRooms}
                             className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold rounded-xl inline-flex items-center gap-2"
                         >
-                            <ShoppingCart size={20} />
-                            Comprar Cartones
+                            Explorar salas
+                            <ArrowRight size={20} />
                         </button>
                     )}
                 </div>
@@ -242,14 +203,6 @@ const MyCardsSection: React.FC<MyCardsSectionProps> = ({
                 </div>
             )}
 
-            {/* Buy Cards Modal */}
-            {showBuyModal && (
-                <BuyCardsModal
-                    onClose={() => setShowBuyModal(false)}
-                    onBuy={handleBuyCards}
-                    isLoading={isBuying}
-                />
-            )}
         </div>
     );
 };

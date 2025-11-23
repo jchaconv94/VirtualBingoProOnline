@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { LogOut, User, Ticket, Users, Settings, Plus, TrendingUp } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { LogOut, User, Ticket, Users, Settings, TrendingUp, ChevronDown } from 'lucide-react';
 import { CartonData } from '../types.ts';
 import { SheetAPI } from '../services/googleSheetService.ts';
 import MyCardsSection from './MyCardsSection.tsx';
@@ -7,6 +7,7 @@ import EditProfileModal from './EditProfileModal.tsx';
 import CreateRoomModal from './CreateRoomModal.tsx';
 import GameRoom from './GameRoom.tsx';
 import JoinRoomModal from './JoinRoomModal.tsx';
+import RoomsSection from './RoomsSection.tsx';
 
 interface PlayerDashboardProps {
     currentUser: {
@@ -43,6 +44,8 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
     const [roomToJoin, setRoomToJoin] = useState<any | null>(null);
     const [rooms, setRooms] = useState<any[]>([]);
     const [roomsLoading, setRoomsLoading] = useState(false);
+    const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+    const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         loadUserCards();
@@ -53,7 +56,11 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
         try {
             const result = await SheetAPI.getRooms(sheetUrl);
             if (result.success && result.rooms) {
-                setRooms(result.rooms);
+                const normalized = result.rooms.map(room => ({
+                    ...room,
+                    pricePerCard: typeof room.pricePerCard === 'number' ? room.pricePerCard : undefined
+                }));
+                setRooms(normalized);
             }
         } catch (error) {
             console.error('Error loading rooms:', error);
@@ -65,6 +72,27 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
     useEffect(() => {
         loadRooms();
     }, [loadRooms]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+                setIsProfileMenuOpen(false);
+            }
+        };
+
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsProfileMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEscape);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, []);
 
     const loadUserCards = async () => {
         setIsLoading(true);
@@ -91,18 +119,19 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
         });
     };
 
-    const handleCreateRoom = async (roomData: { name: string; password?: string }) => {
+    const handleCreateRoom = async (roomData: { name: string; password?: string; pricePerCard: number }) => {
         setIsLoading(true);
         try {
             const result = await SheetAPI.createRoom(sheetUrl, {
                 name: roomData.name,
                 password: roomData.password,
-                adminId: currentUser.idUser
+                adminId: currentUser.idUser,
+                pricePerCard: roomData.pricePerCard
             });
 
             if (result.success && result.room) {
                 await loadRooms();
-                setActiveRoom(result.room);
+                setActiveRoom({ ...result.room, pricePerCard: result.room.pricePerCard ?? roomData.pricePerCard });
                 setShowCreateRoomModal(false);
             } else {
                 console.error('Error creating room:', result.message);
@@ -117,6 +146,11 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
 
     const handleExitRoom = () => {
         setActiveRoom(null);
+    };
+
+    const handleSelectSection = (section: DashboardSection) => {
+        setActiveSection(section);
+        setIsProfileMenuOpen(false);
     };
 
     const handleOpenJoinRoom = (room: any) => {
@@ -134,7 +168,15 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
             const res = await SheetAPI.joinRoom(sheetUrl, roomId, userId, password);
             if (res.success) {
                 await loadRooms();
-                setActiveRoom(selectedRoom || { id: roomId });
+                const backendRoom = res.room ? {
+                    ...res.room,
+                    pricePerCard: typeof res.room.pricePerCard === 'number' ? res.room.pricePerCard : undefined
+                } : null;
+                const resolvedRoom = {
+                    ...(selectedRoom || backendRoom || { id: roomId }),
+                    pricePerCard: selectedRoom?.pricePerCard ?? backendRoom?.pricePerCard
+                };
+                setActiveRoom(resolvedRoom);
                 setShowJoinModal(false);
                 setRoomToJoin(null);
             } else {
@@ -188,30 +230,65 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
                         </div>
 
                         <div className="flex items-center gap-4">
-                            <div className="hidden sm:flex items-center gap-3 px-4 py-2 bg-slate-800/50 rounded-lg border border-slate-700">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold">
-                                    {userData.nombreCompleto.charAt(0).toUpperCase()}
-                                </div>
-                                <div className="text-left">
-                                    <p className="text-white text-sm font-medium">{userData.usuario}</p>
-                                    <p className="text-slate-400 text-xs">{userCards.length} cartones</p>
-                                </div>
-                            </div>
+                            <div className="relative" ref={profileMenuRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsProfileMenuOpen(prev => !prev)}
+                                    className="flex items-center gap-3 px-4 py-2 bg-slate-800/50 rounded-lg border border-slate-700 text-left min-w-[180px]"
+                                >
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold">
+                                        {userData.nombreCompleto.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-white text-sm font-medium">{userData.usuario}</p>
+                                        <p className="text-slate-400 text-xs">{userCards.length} cartones</p>
+                                    </div>
+                                    <ChevronDown size={18} className={`text-slate-400 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
+                                </button>
 
-                            <button
-                                onClick={onLogout}
-                                className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
-                            >
-                                <LogOut size={18} />
-                                <span className="hidden sm:inline">Salir</span>
-                            </button>
+                                {isProfileMenuOpen && (
+                                    <div className="absolute right-0 mt-2 w-60 rounded-xl border border-slate-800 bg-slate-900/95 shadow-2xl z-20 overflow-hidden">
+                                        <div className="px-4 py-3 border-b border-slate-800 text-xs text-slate-400 uppercase tracking-[0.3em]">
+                                            Navegación
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <button
+                                                className={`flex items-center gap-3 px-4 py-3 text-left text-sm hover:bg-slate-800/80 text-white ${activeSection === 'profile' ? 'bg-slate-800/80' : 'text-slate-300'}`}
+                                                onClick={() => handleSelectSection('profile')}
+                                            >
+                                                <User size={16} /> Mi Perfil
+                                            </button>
+                                            <button
+                                                className={`flex items-center gap-3 px-4 py-3 text-left text-sm hover:bg-slate-800/80 text-white ${activeSection === 'cards' ? 'bg-slate-800/80' : 'text-slate-300'}`}
+                                                onClick={() => handleSelectSection('cards')}
+                                            >
+                                                <Ticket size={16} /> Mis Cartones
+                                            </button>
+                                            <button
+                                                className={`flex items-center gap-3 px-4 py-3 text-left text-sm hover:bg-slate-800/80 text-white ${activeSection === 'rooms' ? 'bg-slate-800/80' : 'text-slate-300'}`}
+                                                onClick={() => handleSelectSection('rooms')}
+                                            >
+                                                <Users size={16} /> Salas de Bingo
+                                            </button>
+                                        </div>
+                                        <div className="border-t border-slate-800">
+                                            <button
+                                                className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-rose-300 hover:bg-rose-900/20"
+                                                onClick={onLogout}
+                                            >
+                                                <LogOut size={16} /> Cerrar sesión
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="bg-slate-900/30 border-b border-slate-800">
+            {/* Navigation Tabs (mobile) */}
+            <div className="bg-slate-900/30 border-b border-slate-800 lg:hidden">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex gap-2 overflow-x-auto py-4">
                         {navItems.map((item) => {
@@ -239,36 +316,38 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
                 </div>
             </div>
 
-            {/* Main Content */}
+            {/* Main Content + Side Panel */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {activeSection === 'profile' && (
-                    <ProfileSection
-                        currentUser={userData}
-                        userCards={userCards}
-                        sheetUrl={sheetUrl}
-                        onProfileUpdated={handleProfileUpdated}
-                    />
-                )}
+                <div className="min-w-0 space-y-8">
+                    {activeSection === 'profile' && (
+                        <ProfileSection
+                            currentUser={userData}
+                            userCards={userCards}
+                            sheetUrl={sheetUrl}
+                            onProfileUpdated={handleProfileUpdated}
+                        />
+                    )}
 
-                {activeSection === 'cards' && (
-                    <MyCardsSection
-                        userCards={userCards}
-                        currentUser={userData}
-                        sheetUrl={sheetUrl}
-                        bingoTitle={bingoTitle}
-                        bingoSubtitle={bingoSubtitle}
-                        onCardsUpdated={loadUserCards}
-                    />
-                )}
+                    {activeSection === 'cards' && (
+                        <MyCardsSection
+                            userCards={userCards}
+                            currentUser={userData}
+                            bingoTitle={bingoTitle}
+                            bingoSubtitle={bingoSubtitle}
+                            onNavigateToRooms={() => setActiveSection('rooms')}
+                        />
+                    )}
 
-                {activeSection === 'rooms' && (
-                    <RoomsSection
-                        rooms={rooms}
-                        isLoading={roomsLoading}
-                        onCreateRoom={() => setShowCreateRoomModal(true)}
-                        onJoinRoom={handleOpenJoinRoom}
-                    />
-                )}
+                    {activeSection === 'rooms' && (
+                        <RoomsSection
+                            rooms={rooms}
+                            isLoading={roomsLoading}
+                            onCreateRoom={() => setShowCreateRoomModal(true)}
+                            onJoinRoom={handleOpenJoinRoom}
+                            onRefresh={loadRooms}
+                        />
+                    )}
+                </div>
             </div>
 
             {/* Create Room Modal */}
@@ -422,85 +501,6 @@ const ProfileSection: React.FC<{
                     onClose={() => setShowEditModal(false)}
                     onSave={handleSaveProfile}
                 />
-            )}
-        </div>
-    );
-};
-
-// Rooms Section Component
-const RoomsSection: React.FC<{
-    rooms: any[];
-    isLoading: boolean;
-    onCreateRoom: () => void;
-    onJoinRoom: (room: any) => void;
-}> = ({ rooms, isLoading, onCreateRoom, onJoinRoom }) => {
-
-    return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <Users className="text-emerald-400" />
-                    Salas de Bingo
-                </h2>
-                <button
-                    onClick={onCreateRoom}
-                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg transition-all transform hover:scale-105"
-                >
-                    <Plus size={20} />
-                    Crear Sala
-                </button>
-            </div>
-
-            {isLoading ? (
-                <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
-                    <p className="text-slate-400">Cargando salas...</p>
-                </div>
-            ) : rooms.length === 0 ? (
-                /* Empty state */
-                <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-12 text-center">
-                    <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                    <p className="text-slate-400 text-lg mb-2">No hay salas disponibles</p>
-                    <p className="text-slate-500 text-sm mb-6">Crea una nueva sala para empezar a jugar</p>
-                    <button
-                        onClick={onCreateRoom}
-                        className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold rounded-xl inline-flex items-center gap-2"
-                    >
-                        <Plus size={20} />
-                        Crear Mi Primera Sala
-                    </button>
-                </div>
-            ) : (
-                /* Room List */
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {rooms.map((room) => (
-                        <div key={room.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 hover:border-emerald-500/50 transition-all">
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <h3 className="text-xl font-bold text-white mb-1">{room.name}</h3>
-                                    <p className="text-slate-400 text-xs">ID: {room.id}</p>
-                                </div>
-                                {room.isPrivate && (
-                                    <span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded-lg border border-amber-500/20">
-                                        Privada
-                                    </span>
-                                )}
-                            </div>
-
-                            <div className="flex items-center gap-2 text-slate-400 text-sm mb-6">
-                                <User size={14} />
-                                <span>Creado por Admin</span>
-                            </div>
-
-                            <button
-                                className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors font-medium"
-                                onClick={() => onJoinRoom(room)}
-                            >
-                                Unirse a Sala
-                            </button>
-                        </div>
-                    ))}
-                </div>
             )}
         </div>
     );

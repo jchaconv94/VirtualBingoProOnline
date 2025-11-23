@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { LogOut, Ticket, ShoppingCart, Download, FileText } from 'lucide-react';
+import React, { useState, useEffect, ReactNode } from 'react';
+import { LogOut, Ticket, Download, FileText, Sparkles, ArrowRight, DoorOpen, ShoppingCart } from 'lucide-react';
 import { BingoCard, CartonData } from '../types.ts';
 import { SheetAPI } from '../services/googleSheetService.ts';
-import BuyCardsModal from './BuyCardsModal.tsx';
 import { downloadCardImage, generateBingoCardsPDF } from '../services/exportService.ts';
 
 interface PlayerViewProps {
@@ -16,6 +15,11 @@ interface PlayerViewProps {
     onLogout: () => void;
     bingoTitle: string;
     bingoSubtitle: string;
+    onExitRoom?: () => void;
+    onRequestPurchase?: () => void;
+    purchasePriceLabel?: string;
+    customNotice?: ReactNode;
+    refreshSignal?: number;
 }
 
 const PlayerView: React.FC<PlayerViewProps> = ({
@@ -23,17 +27,20 @@ const PlayerView: React.FC<PlayerViewProps> = ({
     sheetUrl,
     onLogout,
     bingoTitle,
-    bingoSubtitle
+    bingoSubtitle,
+    onExitRoom,
+    onRequestPurchase,
+    purchasePriceLabel,
+    customNotice,
+    refreshSignal = 0
 }) => {
     const [userCards, setUserCards] = useState<CartonData[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [showBuyModal, setShowBuyModal] = useState(false);
-    const [isBuying, setIsBuying] = useState(false);
 
     // Load user's cards
     useEffect(() => {
         loadUserCards();
-    }, [currentUser.idUser]);
+    }, [currentUser.idUser, sheetUrl, refreshSignal]);
 
     const loadUserCards = async () => {
         setIsLoading(true);
@@ -49,69 +56,6 @@ const PlayerView: React.FC<PlayerViewProps> = ({
         }
     };
 
-    const handleBuyCards = async (quantity: number) => {
-        setIsBuying(true);
-        try {
-            // Generate cards and create them in backend
-            const newCards: CartonData[] = [];
-
-            for (let i = 0; i < quantity; i++) {
-                // Generate 24 random numbers for bingo card
-                const numbers = generateBingoNumbers();
-
-                const result = await SheetAPI.createCard(sheetUrl, currentUser.idUser, numbers);
-
-                if (result.success && result.cardId) {
-                    newCards.push({
-                        idUser: currentUser.idUser,
-                        idCarton: result.cardId,
-                        numbers: numbers
-                    });
-                }
-            }
-
-            // Reload cards to show new purchases
-            await loadUserCards();
-            setShowBuyModal(false);
-
-            return { success: true, message: `${quantity} cartón(es) comprado(s) exitosamente` };
-        } catch (error) {
-            console.error('Error buying cards:', error);
-            return { success: false, message: 'Error al comprar cartones' };
-        } finally {
-            setIsBuying(false);
-        }
-    };
-
-    const generateBingoNumbers = (): number[] => {
-        const numbers: number[] = [];
-        const ranges = [
-            [1, 15],   // B column
-            [16, 30],  // I column
-            [31, 45],  // N column (skip center)
-            [46, 60],  // G column
-            [61, 75]   // O column
-        ];
-
-        ranges.forEach((range, colIndex) => {
-            const available = Array.from(
-                { length: range[1] - range[0] + 1 },
-                (_, i) => range[0] + i
-            );
-
-            // Get 5 numbers for this column
-            for (let i = 0; i < 5; i++) {
-                // Skip center of N column (index 2 of column 2)
-                if (colIndex === 2 && i === 2) continue;
-
-                const randomIndex = Math.floor(Math.random() * available.length);
-                numbers.push(available[randomIndex]);
-                available.splice(randomIndex, 1);
-            }
-        });
-
-        return numbers;
-    };
 
     const convertToDisplayCard = (carton: CartonData): BingoCard => {
         // Convert 24 numbers to 25 (with center free space at index 12)
@@ -157,7 +101,7 @@ const PlayerView: React.FC<PlayerViewProps> = ({
             {/* Header */}
             <div className="bg-slate-900/50 border-b border-slate-800 backdrop-blur-xl sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                             <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
                                 {bingoTitle}
@@ -167,28 +111,57 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                             </p>
                         </div>
 
-                        <button
-                            onClick={onLogout}
-                            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
-                        >
-                            <LogOut size={18} />
-                            Cerrar Sesión
-                        </button>
+                        <div className="flex flex-wrap items-center gap-3 justify-end">
+                            {onRequestPurchase && (
+                                <button
+                                    onClick={onRequestPurchase}
+                                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 rounded-lg text-sm font-semibold hover:bg-emerald-600/30"
+                                >
+                                    <ShoppingCart size={18} />
+                                    {purchasePriceLabel ? `Comprar (${purchasePriceLabel})` : 'Comprar cartones'}
+                                </button>
+                            )}
+
+                            {onExitRoom && (
+                                <button
+                                    onClick={onExitRoom}
+                                    className="flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-700 text-slate-200 rounded-lg text-sm hover:bg-slate-700"
+                                >
+                                    <DoorOpen size={18} />
+                                    Salir de sala
+                                </button>
+                            )}
+
+                            <button
+                                onClick={onLogout}
+                                className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+                            >
+                                <LogOut size={18} />
+                                Cerrar sesión
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {/* Buy Cards Section */}
+                {/* Purchase Notice */}
                 <div className="mb-8">
-                    <button
-                        onClick={() => setShowBuyModal(true)}
-                        className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-3 transition-all transform hover:scale-105"
-                    >
-                        <ShoppingCart size={24} />
-                        COMPRAR CARTONES
-                    </button>
+                    {customNotice ?? (
+                        <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-slate-900/60 to-slate-950 p-6 text-emerald-50">
+                            <div className="flex items-center gap-2 text-emerald-200 text-xs font-semibold tracking-[0.3em] uppercase">
+                                <Sparkles size={16} /> Compras dentro de la sala
+                            </div>
+                            <p className="mt-3 text-sm text-emerald-50/80">
+                                Para comprar cartones debes ingresar a una sala activa. El administrador de la sala define el precio y habilita la compra segura.
+                            </p>
+                            <p className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-emerald-200">
+                                Revisa el lobby y únete cuando estés listo
+                                <ArrowRight size={16} />
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 {/* Cards Grid */}
@@ -275,14 +248,6 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                 </div>
             </div>
 
-            {/* Buy Cards Modal */}
-            {showBuyModal && (
-                <BuyCardsModal
-                    onClose={() => setShowBuyModal(false)}
-                    onBuy={handleBuyCards}
-                    isLoading={isBuying}
-                />
-            )}
         </div>
     );
 };

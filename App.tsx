@@ -4,10 +4,12 @@ import LoginRegister from './components/LoginRegister.tsx';
 import PlayerDashboard from './components/PlayerDashboard.tsx';
 import GameRoom from './components/GameRoom.tsx';
 import ConnectionModal from './components/ConnectionModal.tsx';
+import LandingPage from './components/LandingPage.tsx';
 import { useAlert } from './contexts/AlertContext.tsx';
 
 // Default configuration
-const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzBi8fC17hQt_xaGbuG-SeAFmaH1W_PpSYVRHP1fCeE3HfurFchw2yQPmUqqLEZWs65/exec";
+
+const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzD9KfewL4B5wNwmssrk1BHRV2lkaUhLIAYk4ud4Hf1x9rjbGAmcVJ7aFtYBKrKpl9r/exec";
 const SYNC_INTERVAL_KEY = 'bingo_sync_interval_v1';
 
 const App: React.FC = () => {
@@ -33,6 +35,8 @@ const App: React.FC = () => {
     return 2000;
   });
   const [showConnectionModal, setShowConnectionModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   // --- Global Settings ---
   // These might be moved to GameRoom or fetched from backend, but for now kept for title consistency if needed before login
@@ -86,6 +90,7 @@ const App: React.FC = () => {
         setCurrentUser(userData);
         setUserRole(response.user.rol as 'admin' | 'player');
         setIsAuthenticated(true);
+        setShowAuthModal(false);
 
         sessionStorage.setItem('bingo_session', 'true');
         sessionStorage.setItem('bingo_user_data', JSON.stringify(userData));
@@ -133,20 +138,54 @@ const App: React.FC = () => {
   const handleLogout = () => {
     setIsAuthenticated(false);
     setCurrentUser(null);
+    setShowAuthModal(false);
     sessionStorage.removeItem('bingo_session');
     sessionStorage.removeItem('bingo_user_data');
+  };
+
+  const openAuthModal = (mode: 'login' | 'register' = 'login') => {
+    setAuthMode(mode);
+    setShowAuthModal(true);
+  };
+
+  const requireAuth = (mode: 'login' | 'register' = 'login') => {
+    openAuthModal(mode);
   };
 
   // --- Render ---
   if (!isAuthenticated) {
     return (
       <>
-        <LoginRegister
-          onLogin={handleLogin}
-          onRegister={handleRegisterUser}
-          isLoading={isLoginLoading}
+        <LandingPage
+          sheetUrl={sheetUrl}
+          onLoginClick={() => openAuthModal('login')}
+          onRegisterClick={() => openAuthModal('register')}
+          onRequireAuth={() => requireAuth('login')}
           onOpenSettings={() => setShowConnectionModal(true)}
         />
+        {showAuthModal && (
+          <LoginRegister
+            onLogin={async (user, pass) => {
+              const success = await handleLogin(user, pass);
+              if (success) {
+                setShowAuthModal(false);
+              }
+              return success;
+            }}
+            onRegister={async (data) => {
+              const result = await handleRegisterUser(data);
+              if (result.success) {
+                setAuthMode('login');
+              }
+              return result;
+            }}
+            isLoading={isLoginLoading}
+            onOpenSettings={() => setShowConnectionModal(true)}
+            variant="modal"
+            initialMode={authMode}
+            onClose={() => setShowAuthModal(false)}
+          />
+        )}
         {showConnectionModal && (
           <ConnectionModal
             currentUrl={sheetUrl}

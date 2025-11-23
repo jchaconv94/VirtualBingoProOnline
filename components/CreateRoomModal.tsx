@@ -1,26 +1,34 @@
 import React, { useState } from 'react';
-import { X, Users, Lock, Type } from 'lucide-react';
+import { X, Users, Lock, Type, DollarSign } from 'lucide-react';
 
 interface CreateRoomModalProps {
     onClose: () => void;
-    onCreate: (roomData: { name: string; password?: string }) => Promise<void>;
+    onCreate: (roomData: { name: string; password?: string; pricePerCard: number }) => Promise<void>;
 }
 
 const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ onClose, onCreate }) => {
     const [name, setName] = useState('');
     const [password, setPassword] = useState('');
     const [isPrivate, setIsPrivate] = useState(false);
+    const [price, setPrice] = useState('10');
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim()) return;
 
+        const parsedPrice = parseFloat(price);
+        if (isNaN(parsedPrice) || parsedPrice <= 0) {
+            alert('Ingresa un precio válido para los cartones');
+            return;
+        }
+
         setIsLoading(true);
         try {
             await onCreate({
                 name,
-                password: isPrivate ? password : undefined
+                password: isPrivate ? password : undefined,
+                pricePerCard: parsedPrice
             });
         } catch (error) {
             console.error(error);
@@ -89,6 +97,26 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ onClose, onCreate }) 
                                 />
                             </div>
                         )}
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-400 mb-2">
+                            Precio por cartón (S/)
+                        </label>
+                        <div className="relative">
+                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                            <input
+                                type="number"
+                                min="1"
+                                step="0.5"
+                                value={price}
+                                onChange={(e) => setPrice(e.target.value)}
+                                className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                                placeholder="Ej: 10"
+                                required
+                            />
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">Este monto aparecerá para todos los jugadores de la sala.</p>
                     </div>
 
                     <div className="flex gap-3 pt-2">
