@@ -14,7 +14,8 @@
 const SHEET_NAMES = {
   USERS: 'USERS',
   CARTONES: 'CARTONES',
-  ROOMS: 'ROOMS'
+  ROOMS: 'ROOMS',
+  ROOM_PARTICIPANTS: 'ROOM_PARTICIPANTS'
 };
 
 // ============================================================
@@ -138,12 +139,41 @@ function initializeROOMSSheet() {
 }
 
 /**
+ * Initialize the ROOM_PARTICIPANTS sheet with proper headers
+ */
+function initializeROOMPARTICIPANTSSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_NAMES.ROOM_PARTICIPANTS);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAMES.ROOM_PARTICIPANTS);
+  }
+
+  sheet.clear();
+
+  const headers = [
+    'IdRoom',
+    'IdUser',
+    'JoinedAt',
+    'UserName',
+    'UserEmail'
+  ];
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#374151').setFontColor('#ffffff');
+  sheet.setFrozenRows(1);
+
+  Logger.log('ROOM_PARTICIPANTS sheet initialized successfully');
+}
+
+/**
  * Initialize all sheets (run this once to set up the database)
  */
 function initializeDatabase() {
   initializeUSERSSheet();
   initializeCARTONESSheet();
   initializeROOMSSheet();
+  initializeROOMPARTICIPANTSSheet();
   Logger.log('Database initialized successfully');
 }
 
@@ -221,6 +251,32 @@ function registerUser(userData) {
       userData.email || '',
       userData.telefono || '',
       userData.usuario,
+      userData.contraseña || userData.password || '',
+      userData.rol || 'player',
+      new Date().toISOString()
+    ];
+
+    sheet.appendRow(newRow);
+
+    return {
+      success: true,
+      message: 'Usuario registrado exitosamente',
+      userId
+    };
+    
+  } catch (error) {
+    Logger.log('Error in registerUser: ' + error.toString());
+    return {
+      success: false,
+      message: 'Error al registrar usuario: ' + error.toString()
+    };
+  }
+}
+
+/**
+ * Update existing user profile fields
+ */
+function updateUserProfile(userId, profileData) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAMES.USERS);
@@ -234,7 +290,6 @@ function registerUser(userData) {
     // Find user row
     for (let i = 1; i < data.length; i++) {
       if (data[i][0] === userId) {
-        // Update user data
         // Columns: IdUser, Nombre Completo, Email, Teléfono, Usuario, Contraseña, Rol, Fecha Registro
         sheet.getRange(i + 1, 2).setValue(profileData.nombreCompleto); // Nombre Completo
         sheet.getRange(i + 1, 3).setValue(profileData.email); // Email
@@ -257,6 +312,85 @@ function registerUser(userData) {
     return {
       success: false,
       message: 'Error al actualizar perfil: ' + error.toString()
+    };
+  }
+}
+
+/**
+ * Login user against USERS (and legacy Admin) sheets
+ */
+function loginUser(username, password) {
+  try {
+    if (!username || !password) {
+      return {
+        success: false,
+        message: 'Usuario y contraseña requeridos'
+      };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const usersSheet = ss.getSheetByName(SHEET_NAMES.USERS);
+
+    if (usersSheet && usersSheet.getLastRow() > 1) {
+      const data = usersSheet.getDataRange().getValues();
+      for (let i = 1; i < data.length; i++) {
+        const savedUsername = data[i][4]; // Columna Usuario
+        const savedPassword = data[i][5]; // Columna Contraseña
+        if (String(savedUsername) === String(username) && String(savedPassword) === String(password)) {
+          const user = {
+            idUser: data[i][0],
+            nombreCompleto: data[i][1],
+            email: data[i][2],
+            telefono: data[i][3],
+            usuario: savedUsername,
+            rol: data[i][6] || 'player'
+          };
+          return {
+            success: true,
+            message: 'Login exitoso',
+            user
+          };
+        }
+      }
+    }
+
+    // Legacy Admin sheet fallback
+    let adminSheet = ss.getSheetByName('Admin');
+    if (!adminSheet) {
+      adminSheet = ss.insertSheet('Admin');
+      adminSheet.appendRow(['User', 'Password', 'Rol']);
+      adminSheet.appendRow(['admin', 'admin123', 'admin']);
+    }
+
+    const adminData = adminSheet.getDataRange().getValues();
+    for (let i = 1; i < adminData.length; i++) {
+      if (String(adminData[i][0]) === String(username) && String(adminData[i][1]) === String(password)) {
+        const user = {
+          idUser: adminData[i][0] || 'ADMIN',
+          nombreCompleto: 'Administrador',
+          email: '',
+          telefono: '',
+          usuario: adminData[i][0],
+          rol: adminData[i][2] || 'admin'
+        };
+        return {
+          success: true,
+          message: 'Login administrador exitoso',
+          user
+        };
+      }
+    }
+
+    return {
+      success: false,
+      message: 'Credenciales incorrectas'
+    };
+
+  } catch (error) {
+    Logger.log('Error in loginUser: ' + error.toString());
+    return {
+      success: false,
+      message: 'Error en login: ' + error.toString()
     };
   }
 }
@@ -535,6 +669,70 @@ function getActiveRooms() {
   }
 }
 
+/**
+ * Register a user joining a room
+ */
+function joinRoom(roomId, userId, password) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const roomsSheet = ss.getSheetByName(SHEET_NAMES.ROOMS);
+
+    if (!roomsSheet) {
+      return { success: false, message: 'No hay salas disponibles' };
+    }
+
+    const roomsData = roomsSheet.getDataRange().getValues();
+    let found = null;
+
+    for (let i = 1; i < roomsData.length; i++) {
+      if (roomsData[i][0] === roomId && roomsData[i][6] === 'ACTIVE') {
+        found = roomsData[i];
+        break;
+      }
+    }
+
+    if (!found) return { success: false, message: 'Sala no encontrada o no activa' };
+
+    const roomPassword = found[3] || '';
+    const isPrivate = !!found[4];
+
+    if (isPrivate && String(roomPassword) !== String(password || '')) {
+      return { success: false, message: 'Contraseña incorrecta' };
+    }
+
+    // Ensure participants sheet exists
+    let partSheet = ss.getSheetByName(SHEET_NAMES.ROOM_PARTICIPANTS);
+    if (!partSheet) {
+      initializeROOMPARTICIPANTSSheet();
+      partSheet = ss.getSheetByName(SHEET_NAMES.ROOM_PARTICIPANTS);
+    }
+
+    // Optionally fetch user info from USERS sheet
+    let userName = '';
+    let userEmail = '';
+    const usersSheet = ss.getSheetByName(SHEET_NAMES.USERS);
+    if (usersSheet) {
+      const usersData = usersSheet.getDataRange().getValues();
+      for (let j = 1; j < usersData.length; j++) {
+        if (usersData[j][0] === userId) {
+          userName = usersData[j][1] || '';
+          userEmail = usersData[j][2] || '';
+          break;
+        }
+      }
+    }
+
+    const joinedAt = new Date().toISOString();
+    partSheet.appendRow([roomId, userId, joinedAt, userName, userEmail]);
+
+    return { success: true, message: 'Unido a la sala', joinedAt };
+
+  } catch (error) {
+    Logger.log('Error in joinRoom: ' + error.toString());
+    return { success: false, message: 'Error al unir a la sala: ' + error.toString() };
+  }
+}
+
 // ============================================================
 // WEB APP ENDPOINTS
 // ============================================================
@@ -604,6 +802,10 @@ function doPost(e) {
 
       case 'get_rooms':
         result = getActiveRooms();
+        break;
+
+      case 'join_room':
+        result = joinRoom(params.roomId, params.userId, params.password);
         break;
         
       default:

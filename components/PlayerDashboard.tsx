@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { LogOut, User, Ticket, Users, Settings, Plus, TrendingUp } from 'lucide-react';
 import { CartonData } from '../types.ts';
 import { SheetAPI } from '../services/googleSheetService.ts';
@@ -6,6 +6,7 @@ import MyCardsSection from './MyCardsSection.tsx';
 import EditProfileModal from './EditProfileModal.tsx';
 import CreateRoomModal from './CreateRoomModal.tsx';
 import GameRoom from './GameRoom.tsx';
+import JoinRoomModal from './JoinRoomModal.tsx';
 
 interface PlayerDashboardProps {
     currentUser: {
@@ -38,10 +39,32 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
     // Room State
     const [activeRoom, setActiveRoom] = useState<any | null>(null);
     const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
+    const [showJoinModal, setShowJoinModal] = useState(false);
+    const [roomToJoin, setRoomToJoin] = useState<any | null>(null);
+    const [rooms, setRooms] = useState<any[]>([]);
+    const [roomsLoading, setRoomsLoading] = useState(false);
 
     useEffect(() => {
         loadUserCards();
     }, [currentUser.idUser]);
+
+    const loadRooms = useCallback(async () => {
+        setRoomsLoading(true);
+        try {
+            const result = await SheetAPI.getRooms(sheetUrl);
+            if (result.success && result.rooms) {
+                setRooms(result.rooms);
+            }
+        } catch (error) {
+            console.error('Error loading rooms:', error);
+        } finally {
+            setRoomsLoading(false);
+        }
+    }, [sheetUrl]);
+
+    useEffect(() => {
+        loadRooms();
+    }, [loadRooms]);
 
     const loadUserCards = async () => {
         setIsLoading(true);
@@ -78,6 +101,7 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
             });
 
             if (result.success && result.room) {
+                await loadRooms();
                 setActiveRoom(result.room);
                 setShowCreateRoomModal(false);
             } else {
@@ -95,6 +119,33 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
         setActiveRoom(null);
     };
 
+    const handleOpenJoinRoom = (room: any) => {
+        setRoomToJoin(room);
+        setShowJoinModal(true);
+    };
+
+    const handleJoinRoom = async (roomId: string, password?: string) => {
+        const selectedRoom = (roomToJoin && roomToJoin.id === roomId)
+            ? roomToJoin
+            : rooms.find(r => r.id === roomId);
+        try {
+            const stored = JSON.parse(sessionStorage.getItem('bingo_user_data') || '{}');
+            const userId = stored.userId || currentUser.idUser;
+            const res = await SheetAPI.joinRoom(sheetUrl, roomId, userId, password);
+            if (res.success) {
+                await loadRooms();
+                setActiveRoom(selectedRoom || { id: roomId });
+                setShowJoinModal(false);
+                setRoomToJoin(null);
+            } else {
+                alert(res.message || 'No se pudo unir a la sala');
+            }
+        } catch (err) {
+            console.error('Error joining room:', err);
+            alert('Ocurrió un error al unirse a la sala');
+        }
+    };
+
     // If in a room, render the GameRoom component
     if (activeRoom) {
         return (
@@ -108,7 +159,7 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
                 userRole="player" // Still a player role globally
                 sheetUrl={sheetUrl}
                 onLogout={onLogout}
-                isRoomAdmin={true} // They are admin of THIS room
+                isRoomAdmin={currentUser.idUser === activeRoom.adminId} // True if the player is the room admin
                 roomData={activeRoom}
                 onExitRoom={handleExitRoom}
             />
@@ -212,9 +263,10 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
 
                 {activeSection === 'rooms' && (
                     <RoomsSection
-                        currentUser={userData}
-                        sheetUrl={sheetUrl}
+                        rooms={rooms}
+                        isLoading={roomsLoading}
                         onCreateRoom={() => setShowCreateRoomModal(true)}
+                        onJoinRoom={handleOpenJoinRoom}
                     />
                 )}
             </div>
@@ -224,6 +276,13 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
                 <CreateRoomModal
                     onClose={() => setShowCreateRoomModal(false)}
                     onCreate={handleCreateRoom}
+                />
+            )}
+            {showJoinModal && roomToJoin && (
+                <JoinRoomModal
+                    room={roomToJoin}
+                    onClose={() => { setShowJoinModal(false); setRoomToJoin(null); }}
+                    onJoin={handleJoinRoom}
                 />
             )}
         </div>
@@ -370,30 +429,11 @@ const ProfileSection: React.FC<{
 
 // Rooms Section Component
 const RoomsSection: React.FC<{
-    currentUser: any;
-    sheetUrl: string;
+    rooms: any[];
+    isLoading: boolean;
     onCreateRoom: () => void;
-}> = ({ currentUser, sheetUrl, onCreateRoom }) => {
-    const [rooms, setRooms] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-
-    useEffect(() => {
-        loadRooms();
-    }, []);
-
-    const loadRooms = async () => {
-        setIsLoading(true);
-        try {
-            const result = await SheetAPI.getRooms(sheetUrl);
-            if (result.success && result.rooms) {
-                setRooms(result.rooms);
-            }
-        } catch (error) {
-            console.error('Error loading rooms:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    onJoinRoom: (room: any) => void;
+}> = ({ rooms, isLoading, onCreateRoom, onJoinRoom }) => {
 
     return (
         <div className="space-y-6">
@@ -454,7 +494,7 @@ const RoomsSection: React.FC<{
 
                             <button
                                 className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors font-medium"
-                                onClick={() => alert("La funcionalidad de unirse a salas estará disponible pronto.")}
+                                onClick={() => onJoinRoom(room)}
                             >
                                 Unirse a Sala
                             </button>

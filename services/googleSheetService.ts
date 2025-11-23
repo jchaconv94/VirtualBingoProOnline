@@ -335,5 +335,30 @@ export const SheetAPI = {
       console.error("Get Rooms Error:", error);
       return { success: false, error: String(error) };
     }
+  },
+
+  /**
+   * Join a room (register participant entry)
+   */
+  async joinRoom(url: string, roomId: string, userId: string, password?: string): Promise<ApiResponse> {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'join_room',
+          roomId,
+          userId,
+          password
+        }),
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+      });
+      const json = await response.json();
+      return json;
+    } catch (error) {
+      console.error("Join Room Error:", error);
+      return { success: false, error: String(error) };
+    }
   }
 };

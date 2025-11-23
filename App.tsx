@@ -7,7 +7,7 @@ import ConnectionModal from './components/ConnectionModal.tsx';
 import { useAlert } from './contexts/AlertContext.tsx';
 
 // Default configuration
-const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbxMzK7XiHU2Ggn0h8Zc-OEu0QwrZ-3EgPihDAFLlJWn48dPdgOfThQUfbrTG9Fo-lPe/exec";
+const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzBi8fC17hQt_xaGbuG-SeAFmaH1W_PpSYVRHP1fCeE3HfurFchw2yQPmUqqLEZWs65/exec";
 
 const App: React.FC = () => {
   const { showAlert } = useAlert();
