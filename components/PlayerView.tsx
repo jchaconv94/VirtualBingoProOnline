@@ -5,6 +5,8 @@ import { SheetAPI } from '../services/googleSheetService.ts';
 import { downloadCardImage, generateBingoCardsPDF } from '../services/exportService.ts';
 import { cartonDataToBingoCard } from '../utils/helpers.ts';
 
+const convertToDisplayCard = (carton: CartonData) => cartonDataToBingoCard(carton);
+
 interface PlayerViewProps {
     currentUser: {
         idUser: string;
@@ -21,6 +23,7 @@ interface PlayerViewProps {
     purchasePriceLabel?: string;
     customNotice?: ReactNode;
     refreshSignal?: number;
+    roomId?: string;
 }
 
 const PlayerView: React.FC<PlayerViewProps> = ({
@@ -33,7 +36,8 @@ const PlayerView: React.FC<PlayerViewProps> = ({
     onRequestPurchase,
     purchasePriceLabel,
     customNotice,
-    refreshSignal = 0
+    refreshSignal = 0,
+    roomId
 }) => {
     const [userCards, setUserCards] = useState<CartonData[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -41,12 +45,12 @@ const PlayerView: React.FC<PlayerViewProps> = ({
     // Load user's cards
     useEffect(() => {
         loadUserCards();
-    }, [currentUser.idUser, sheetUrl, refreshSignal]);
+    }, [currentUser.idUser, sheetUrl, refreshSignal, roomId]);
 
     const loadUserCards = async () => {
         setIsLoading(true);
         try {
-            const result = await SheetAPI.getUserCards(sheetUrl, currentUser.idUser);
+            const result = await SheetAPI.getUserCards(sheetUrl, currentUser.idUser, roomId);
             if (result.success && result.cards) { setUserCards(result.cards); }
         } catch (error) {
             console.error('Error loading cards:', error);
@@ -182,8 +186,11 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                                         className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 hover:border-cyan-500/50 transition-all"
                                     >
                                         {/* Card Header */}
-                                        <div className="mb-4">
+                                        <div className="mb-4 flex items-center justify-between gap-2">
                                             <p className="text-slate-400 text-sm">Cartón #{carton.idCarton.slice(-8)}</p>
+                                            <span className="text-[11px] uppercase tracking-wide px-2 py-1 rounded-full border border-slate-800 text-slate-400">
+                                                {carton.roomId ? `Sala ${carton.roomId}` : 'Sin sala'}
+                                            </span>
                                         </div>
 
                                         {/* Bingo Grid */}

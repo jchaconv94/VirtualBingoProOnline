@@ -36,6 +36,11 @@ const LS_KEYS = {
     SYNC_INTERVAL: 'bingo_sync_interval_v1'
 };
 
+// Helper to scope localStorage keys by room
+const getRoomScopedKey = (baseKey: string, roomId?: string): string => {
+    return roomId ? `${baseKey}_room_${roomId}` : baseKey;
+};
+
 interface GameRoomProps {
     currentUser: { username: string; fullName?: string; email?: string; userId?: string; phone?: string } | null;
     userRole: 'admin' | 'player';
@@ -57,6 +62,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
 }) => {
     const { showAlert, showConfirm } = useAlert();
     const { refreshCards: refreshPlayerCards } = usePlayerCards();
+    const activeRoomId = roomData?.id;
 
     // --- Configuración de Nube ---
     const [sheetUrl, setSheetUrl] = useState<string>(initialSheetUrl);
@@ -77,7 +83,8 @@ const GameRoom: React.FC<GameRoomProps> = ({
 
     // --- State ---
     const [participants, setParticipants] = useState<Participant[]>(() => {
-        const saved = localStorage.getItem(LS_KEYS.PARTICIPANTS);
+        const key = getRoomScopedKey(LS_KEYS.PARTICIPANTS, activeRoomId);
+        const saved = localStorage.getItem(key);
         return saved ? JSON.parse(saved) : [];
     });
 
@@ -90,28 +97,33 @@ const GameRoom: React.FC<GameRoomProps> = ({
             gameRound: 1,
             isPaused: false
         };
-        const saved = localStorage.getItem(LS_KEYS.GAME_STATE);
+        const key = getRoomScopedKey(LS_KEYS.GAME_STATE, activeRoomId);
+        const saved = localStorage.getItem(key);
         const loaded = saved ? JSON.parse(saved) : defaults;
         return { ...defaults, ...loaded, isPaused: loaded.isPaused || false };
     });
 
     const [winners, setWinners] = useState<Winner[]>(() => {
-        const saved = localStorage.getItem(LS_KEYS.WINNERS);
+        const key = getRoomScopedKey(LS_KEYS.WINNERS, activeRoomId);
+        const saved = localStorage.getItem(key);
         return saved ? JSON.parse(saved) : [];
     });
 
     const [prizes, setPrizes] = useState<Prize[]>(() => {
-        const saved = localStorage.getItem(LS_KEYS.PRIZES);
+        const key = getRoomScopedKey(LS_KEYS.PRIZES, activeRoomId);
+        const saved = localStorage.getItem(key);
         return saved ? JSON.parse(saved) : [];
     });
 
     const [bingoTitle, setBingoTitle] = useState<string>(() => {
-        const saved = localStorage.getItem(LS_KEYS.TITLE);
+        const key = getRoomScopedKey(LS_KEYS.TITLE, activeRoomId);
+        const saved = localStorage.getItem(key);
         return saved ? JSON.parse(saved) : "VIRTUAL BINGO PRO";
     });
 
     const [bingoSubtitle, setBingoSubtitle] = useState<string>(() => {
-        const saved = localStorage.getItem(LS_KEYS.SUBTITLE);
+        const key = getRoomScopedKey(LS_KEYS.SUBTITLE, activeRoomId);
+        const saved = localStorage.getItem(key);
         return saved ? JSON.parse(saved) : "Aplicación web de bingo virtual";
     });
 
@@ -187,13 +199,13 @@ const GameRoom: React.FC<GameRoomProps> = ({
     }, [currentUser, sheetUrl, derivePlayerParticipantFromCards]);
     const bannerDescription = hasValidCardPrice
         ? (userRole === 'player'
-            ? `Cada cartón cuesta ${formatCurrency(cardPrice || 0)}. Compra desde aquí y pide al administrador que sincronice para verlos en tu cuenta.`
+            ? `Cada cartón cuesta ${formatCurrency(cardPrice || 0)}. Los cartones que compres se vinculan a esta sala y aparecerán automáticamente en tu panel.`
             : `Precio fijado en ${formatCurrency(cardPrice || 0)}. Asegúrate de sincronizar la sala después de cada compra para reflejarlo en Sheets.`)
         : (userRole === 'player'
             ? 'El administrador aún no ha definido un precio para los cartones en esta sala.'
             : 'Define un precio para los cartones para habilitar las compras dentro de esta sala.');
     const bannerSecondaryLabel = canPurchaseCards
-        ? ''
+        ? 'Tus cartones se guardan solo en esta sala'
         : userRole === 'player'
             ? 'Esperando precio del administrador'
             : hasValidCardPrice
@@ -202,12 +214,42 @@ const GameRoom: React.FC<GameRoomProps> = ({
 
 
     // --- Persistence ---
-    useEffect(() => { localStorage.setItem(LS_KEYS.PARTICIPANTS, JSON.stringify(participants)); }, [participants]);
-    useEffect(() => { localStorage.setItem(LS_KEYS.GAME_STATE, JSON.stringify(gameState)); }, [gameState]);
-    useEffect(() => { localStorage.setItem(LS_KEYS.WINNERS, JSON.stringify(winners)); }, [winners]);
-    useEffect(() => { localStorage.setItem(LS_KEYS.PRIZES, JSON.stringify(prizes)); }, [prizes]);
-    useEffect(() => { localStorage.setItem(LS_KEYS.TITLE, JSON.stringify(bingoTitle)); }, [bingoTitle]);
-    useEffect(() => { localStorage.setItem(LS_KEYS.SUBTITLE, JSON.stringify(bingoSubtitle)); }, [bingoSubtitle]);
+    useEffect(() => {
+        if (activeRoomId) {
+            const key = getRoomScopedKey(LS_KEYS.PARTICIPANTS, activeRoomId);
+            localStorage.setItem(key, JSON.stringify(participants));
+        }
+    }, [participants, activeRoomId]);
+    useEffect(() => {
+        if (activeRoomId) {
+            const key = getRoomScopedKey(LS_KEYS.GAME_STATE, activeRoomId);
+            localStorage.setItem(key, JSON.stringify(gameState));
+        }
+    }, [gameState, activeRoomId]);
+    useEffect(() => {
+        if (activeRoomId) {
+            const key = getRoomScopedKey(LS_KEYS.WINNERS, activeRoomId);
+            localStorage.setItem(key, JSON.stringify(winners));
+        }
+    }, [winners, activeRoomId]);
+    useEffect(() => {
+        if (activeRoomId) {
+            const key = getRoomScopedKey(LS_KEYS.PRIZES, activeRoomId);
+            localStorage.setItem(key, JSON.stringify(prizes));
+        }
+    }, [prizes, activeRoomId]);
+    useEffect(() => {
+        if (activeRoomId) {
+            const key = getRoomScopedKey(LS_KEYS.TITLE, activeRoomId);
+            localStorage.setItem(key, JSON.stringify(bingoTitle));
+        }
+    }, [bingoTitle, activeRoomId]);
+    useEffect(() => {
+        if (activeRoomId) {
+            const key = getRoomScopedKey(LS_KEYS.SUBTITLE, activeRoomId);
+            localStorage.setItem(key, JSON.stringify(bingoSubtitle));
+        }
+    }, [bingoSubtitle, activeRoomId]);
     useEffect(() => { localStorage.setItem(LS_KEYS.AUTO_SYNC, JSON.stringify(autoSync)); }, [autoSync]);
     useEffect(() => { localStorage.setItem(LS_KEYS.SYNC_INTERVAL, JSON.stringify(syncInterval)); }, [syncInterval]);
 
@@ -268,6 +310,16 @@ const GameRoom: React.FC<GameRoomProps> = ({
             loadFromCloud();
         }
     }, []);
+
+    // When a player enters a room ensure their cards are scoped to that room
+    useEffect(() => {
+        if (userRole === 'player' && activeRoomId) {
+            refreshPlayerCards(activeRoomId).then(cards => {
+                // Sync loaded cards to participants state so they display in ParticipantsPanel
+                persistPlayerParticipant(cards);
+            });
+        }
+    }, [userRole, activeRoomId, refreshPlayerCards, persistPlayerParticipant]);
 
     useEffect(() => {
         let intervalId: ReturnType<typeof setInterval>;
@@ -520,6 +572,10 @@ const GameRoom: React.FC<GameRoomProps> = ({
             showAlert({ title: 'Precio no disponible', message: 'Consulta con el administrador para habilitar las compras.', type: 'info' });
             return;
         }
+        if (!activeRoomId) {
+            showAlert({ title: 'Sala no disponible', message: 'No se encontró la sala actual para vincular los cartones.', type: 'warning' });
+            return;
+        }
         setShowBuyModal(true);
     };
 
@@ -532,13 +588,17 @@ const GameRoom: React.FC<GameRoomProps> = ({
             showAlert({ title: 'Sin conexión', message: 'Configura la conexión con Google Sheets antes de comprar.', type: 'warning' });
             return;
         }
+        if (!activeRoomId) {
+            showAlert({ title: 'Sala no disponible', message: 'Necesitas ingresar desde una sala válida para comprar cartones.', type: 'danger' });
+            return;
+        }
         setIsProcessingPurchase(true);
         try {
             const createdCardIds: string[] = [];
             for (let i = 0; i < quantity; i++) {
                 const numbers = generateBingoCardNumbers();
                 const sheetNumbers = removeFreeSpace(numbers);
-                const response = await SheetAPI.createCard(sheetUrl, currentUser.userId, sheetNumbers);
+                const response = await SheetAPI.createCard(sheetUrl, currentUser.userId, sheetNumbers, activeRoomId);
                 if (!response.success) {
                     throw new Error(response.message || 'No se pudo registrar el cartón');
                 }
@@ -547,7 +607,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
                 }
             }
 
-            const latestCards = await refreshPlayerCards();
+            const latestCards = await refreshPlayerCards(activeRoomId);
             await persistPlayerParticipant(latestCards);
 
             const purchaseSummary = hasValidCardPrice

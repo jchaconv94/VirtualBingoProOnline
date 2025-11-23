@@ -10,7 +10,7 @@ import { PlayerCardsProvider } from './contexts/PlayerCardsContext.tsx';
 
 // Default configuration
 
-const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzMVq92fONLdqelBgWJhrDIzOc4cteHhzxXYXldNW5YBGFdff_YFwZcSlk3pNleZ6oZ/exec";
+const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbxrC5h5DvXkb-kcCtga8uW6ZX098Z4PVhe0s7qoq9Nv_TQY9N53WpBx18u_jUxR7t62/exec";
 const SYNC_INTERVAL_KEY = 'bingo_sync_interval_v1';
 
 const App: React.FC = () => {

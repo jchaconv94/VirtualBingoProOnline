@@ -4,6 +4,8 @@ import { CartonData } from '../types.ts';
 import { downloadCardImage, generateBingoCardsPDF } from '../services/exportService.ts';
 import { cartonDataToBingoCard } from '../utils/helpers.ts';
 
+const convertToDisplayCard = (carton: CartonData) => cartonDataToBingoCard(carton);
+
 interface MyCardsSectionProps {
     userCards: CartonData[];
     currentUser: {
@@ -54,9 +56,13 @@ const MyCardsSection: React.FC<MyCardsSectionProps> = ({
         await generateBingoCardsPDF(participant, bingoTitle, bingoSubtitle, carton.idCarton);
     };
 
-    const filteredCards = userCards.filter(card =>
-        card.idCarton.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const normalizedSearch = searchTerm.toLowerCase();
+    const filteredCards = userCards.filter(card => {
+        if (!normalizedSearch) return true;
+        const matchesId = card.idCarton.toLowerCase().includes(normalizedSearch);
+        const matchesRoom = (card.roomId || '').toLowerCase().includes(normalizedSearch);
+        return matchesId || matchesRoom;
+    });
 
     return (
         <div className="space-y-6">
@@ -74,8 +80,8 @@ const MyCardsSection: React.FC<MyCardsSectionProps> = ({
                         <Sparkles size={16} /> Compras dentro de la sala
                     </div>
                     <p className="text-emerald-50/80">
-                        Las compras de cartones ahora se realizan dentro de cada sala de bingo, donde el administrador define el precio oficial.
-                        Únete a una sala disponible para desbloquear el botón de compra.
+                        Los cartones son específicos de cada sala. Cuando compres cartones dentro de una sala, solo aparecerán en esa sala específica.
+                        Para ver tus cartones, ingresa a la sala donde los compraste.
                     </p>
                     {onNavigateToRooms && (
                         <button
@@ -118,7 +124,7 @@ const MyCardsSection: React.FC<MyCardsSectionProps> = ({
                         {searchTerm ? 'No se encontraron cartones' : 'No tienes cartones aún'}
                     </p>
                     <p className="text-slate-500 text-sm mb-6">
-                        {searchTerm ? 'Intenta con otro término de búsqueda' : 'Únete a una sala para comprar tus primeros cartones'}
+                        {searchTerm ? 'Intenta con otro término de búsqueda' : 'Los cartones solo se muestran dentro de la sala donde fueron comprados. Ingresa a una sala para ver tus cartones.'}
                     </p>
                     {!searchTerm && onNavigateToRooms && (
                         <button
@@ -141,9 +147,14 @@ const MyCardsSection: React.FC<MyCardsSectionProps> = ({
                                 className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 hover:border-cyan-500/50 transition-all group"
                             >
                                 {/* Card Header */}
-                                <div className="mb-4">
-                                    <p className="text-slate-400 text-sm">Cartón</p>
-                                    <p className="text-white font-mono font-bold">#{carton.idCarton.slice(-8)}</p>
+                                <div className="mb-4 flex items-center justify-between gap-2">
+                                    <div>
+                                        <p className="text-slate-400 text-sm">Cartón</p>
+                                        <p className="text-white font-mono font-bold">#{carton.idCarton.slice(-8)}</p>
+                                    </div>
+                                    <span className="text-[11px] uppercase tracking-wide px-2 py-1 rounded-full border border-slate-800 text-slate-400">
+                                        {carton.roomId ? `Sala ${carton.roomId}` : 'Sin sala'}
+                                    </span>
                                 </div>
 
                                 {/* Bingo Grid */}

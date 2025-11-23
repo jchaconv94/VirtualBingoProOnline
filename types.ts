@@ -20,6 +20,7 @@ export interface UserData {
 export interface CartonData {
   idUser: string;
   idCarton: string;
+  roomId?: string;
   numbers: number[]; // Array of 24 numbers (no free space in sheet)
 }
 

@@ -223,7 +223,7 @@ export const SheetAPI = {
   /**
    * Create a new bingo card in the CARTONES sheet
    */
-  async createCard(url: string, idUser: string, numbers: number[]): Promise<ApiResponse> {
+  async createCard(url: string, idUser: string, numbers: number[], roomId: string): Promise<ApiResponse> {
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -231,6 +231,7 @@ export const SheetAPI = {
           action: 'create_card',
           cardData: {
             idUser,
+            idRoom: roomId,
             numbers
           }
         }),
@@ -249,11 +250,11 @@ export const SheetAPI = {
   /**
    * Get all cards for a specific user
    */
-  async getUserCards(url: string, userId: string): Promise<ApiResponse> {
+  async getUserCards(url: string, userId: string, roomId?: string): Promise<ApiResponse> {
     try {
       const response = await fetch(url, {
         method: 'POST',
-        body: JSON.stringify({ action: 'get_user_cards', userId }),
+        body: JSON.stringify({ action: 'get_user_cards', userId, roomId }),
         headers: {
           'Content-Type': 'text/plain;charset=utf-8',
         },

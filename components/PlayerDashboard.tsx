@@ -59,11 +59,12 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
-    const { cards: userCards, refreshCards } = usePlayerCards();
+    const { cards: userCards } = usePlayerCards();
 
-    useEffect(() => {
-        refreshCards();
-    }, [refreshCards]);
+    // Don't load cards in dashboard - cards are room-specific
+    // useEffect(() => {
+    //     refreshCards();
+    // }, [refreshCards]);
 
     const loadRooms = useCallback(async () => {
         setRoomsLoading(true);
@@ -158,6 +159,7 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
 
     const handleExitRoom = () => {
         setActiveRoom(null);
+        // Don't refresh cards when exiting - cards are room-specific
     };
 
     const handleSelectSection = (section: DashboardSection) => {

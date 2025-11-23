@@ -78,8 +78,8 @@ function initializeCARTONESSheet() {
   // Clear existing content
   sheet.clear();
   
-  // Set headers: IdUser, ID_Carton, N1-N24
-  const headers = ['IdUser', 'ID_Carton'];
+  // Set headers: IdUser, IdRoom, ID_Carton, N1-N24
+  const headers = ['IdUser', 'IdRoom', 'ID_Carton'];
   for (let i = 1; i <= 24; i++) {
     headers.push('N' + i);
   }
@@ -412,11 +412,19 @@ function createCard(cardData) {
       throw new Error('CARTONES sheet not found. Please initialize the database first.');
     }
     
+    if (!cardData.idRoom) {
+      throw new Error('Card must include the room ID');
+    }
+
     // Generate unique card ID
     const cardId = generateCardId();
     
-    // Prepare row data: IdUser, ID_Carton, N1-N24
-    const newRow = [cardData.idUser, cardId];
+    // Prepare row data: IdUser, IdRoom, ID_Carton, N1-N24
+    const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const hasRoomColumn = header.includes('IdRoom');
+    const newRow = hasRoomColumn
+      ? [cardData.idUser, cardData.idRoom, cardId]
+      : [cardData.idUser, cardId];
     
     // Add the 24 numbers
     if (cardData.numbers && cardData.numbers.length === 24) {
@@ -444,9 +452,9 @@ function createCard(cardData) {
 }
 
 /**
- * Get all cards for a specific user
+ * Get all cards for a specific user (optionally filtered by room)
  */
-function getUserCards(userId) {
+function getUserCards(userId, roomId) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAMES.CARTONES);
@@ -457,21 +465,45 @@ function getUserCards(userId) {
     
     const data = sheet.getDataRange().getValues();
     const cards = [];
+    if (data.length < 2) {
+      return {
+        success: true,
+        cards: []
+      };
+    }
+
+    const headers = data[0];
+    const userCol = headers.indexOf('IdUser');
+    const roomCol = headers.indexOf('IdRoom');
+    const cardCol = headers.indexOf('ID_Carton');
+    const numbersStartCol = cardCol >= 0 ? cardCol + 1 : (roomCol >= 0 ? roomCol + 2 : 2);
     
     // Search for user's cards (skip header row)
     for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === userId) { // Column 0 is IdUser
-        const numbers = [];
-        for (let j = 2; j < 26; j++) { // Columns 2-25 are N1-N24
-          numbers.push(data[i][j]);
+      const row = data[i];
+      const matchesUser = userCol >= 0 ? row[userCol] === userId : row[0] === userId;
+      if (!matchesUser) continue;
+
+      if (roomId) {
+        if (roomCol === -1) {
+          continue; // Cannot match specific room if column missing
         }
-        
-        cards.push({
-          idUser: data[i][0],
-          idCarton: data[i][1],
-          numbers: numbers
-        });
+        if (row[roomCol] !== roomId) {
+          continue;
+        }
       }
+
+      const numbers = [];
+      for (let j = numbersStartCol; j < numbersStartCol + 24; j++) {
+        numbers.push(row[j]);
+      }
+      
+      cards.push({
+        idUser: row[userCol >= 0 ? userCol : 0],
+        idCarton: row[cardCol >= 0 ? cardCol : (roomCol >= 0 ? roomCol + 1 : 1)],
+        roomId: roomCol >= 0 ? row[roomCol] : undefined,
+        numbers: numbers
+      });
     }
     
     return {
@@ -502,18 +534,32 @@ function getAllCards() {
     }
 
     const data = sheet.getDataRange().getValues();
+    if (data.length < 2) {
+      return {
+        success: true,
+        cards: []
+      };
+    }
+
+    const headers = data[0];
+    const userCol = headers.indexOf('IdUser');
+    const roomCol = headers.indexOf('IdRoom');
+    const cardCol = headers.indexOf('ID_Carton');
+    const numbersStartCol = cardCol >= 0 ? cardCol + 1 : (roomCol >= 0 ? roomCol + 2 : 2);
     const cards = [];
 
     // Skip header row
     for (let i = 1; i < data.length; i++) {
+      const row = data[i];
       const numbers = [];
-      for (let j = 2; j < 26; j++) {
-        numbers.push(data[i][j]);
+      for (let j = numbersStartCol; j < numbersStartCol + 24; j++) {
+        numbers.push(row[j]);
       }
 
       cards.push({
-        idUser: data[i][0],
-        idCarton: data[i][1],
+        idUser: row[userCol >= 0 ? userCol : 0],
+        idCarton: row[cardCol >= 0 ? cardCol : (roomCol >= 0 ? roomCol + 1 : 1)],
+        roomId: roomCol >= 0 ? row[roomCol] : undefined,
         numbers: numbers
       });
     }
@@ -797,7 +843,7 @@ function doPost(e) {
         break;
         
       case 'get_user_cards':
-        result = getUserCards(params.userId);
+        result = getUserCards(params.userId, params.roomId);
         break;
         
       case 'get_all_cards':
