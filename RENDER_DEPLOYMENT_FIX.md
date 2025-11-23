@@ -5,14 +5,32 @@
 El código ha sido actualizado con:
 - ✅ Paquete `serve` agregado a dependencies
 - ✅ Script `start` creado para servir archivos estáticos
+- ✅ **Code splitting** implementado en `vite.config.ts` para optimizar bundle
+
+## 🎯 Optimizaciones Implementadas
+
+### Code Splitting (vite.config.ts)
+
+Las librerías pesadas ahora se separan en chunks individuales:
+- `html2canvas` → chunk separado (201 KB)
+- `jspdf` → chunk separado
+- `jszip` → chunk separado
+- `xlsx` → chunk separado
+- `react-vendor` → React + ReactDOM juntos
+- `confetti` → canvas-confetti separado
+
+**Beneficios**:
+- ✅ **Menos memoria** durante el build (no procesa todo junto)
+- ✅ **Mejor cache** del navegador (cada librería se cachea por separado)
+- ✅ **Carga más rápida** (lazy loading de funcionalidades)
 
 ## 📋 Pasos para Actualizar Render
 
 ### 1. Commit y Push de Cambios
 
 ```bash
-git add package.json
-git commit -m "fix: add serve for production deployment"
+git add package.json vite.config.ts
+git commit -m "fix: optimize build with code splitting and serve for deployment"
 git push origin main
 ```
 
