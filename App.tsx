@@ -19,7 +19,7 @@ const App: React.FC = () => {
   const [isLoginLoading, setIsLoginLoading] = useState(false);
 
   // --- Config State ---
-  const [sheetUrl, setSheetUrl] = useState<string>(() => localStorage.getItem('bingo_sheet_url_v1') || DEFAULT_SHEET_URL);
+  const [sheetUrl, setSheetUrl] = useState<string>(DEFAULT_SHEET_URL);
   const [autoSync, setAutoSync] = useState<boolean>(true); // Managed by GameRoom/ConnectionModal mostly, but kept here for initial pass
   const [syncInterval, setSyncInterval] = useState<number>(5000);
   const [showConnectionModal, setShowConnectionModal] = useState(false);
@@ -42,9 +42,7 @@ const App: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem('bingo_sheet_url_v1', sheetUrl);
-  }, [sheetUrl]);
+  // No persistence: the URL stays tied to the constant unless changed during the current session
 
   // --- Handlers ---
   const handleLogin = async (user: string, pass: string): Promise<boolean> => {
