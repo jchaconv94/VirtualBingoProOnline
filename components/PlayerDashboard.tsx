@@ -221,9 +221,16 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-                                {bingoTitle}
-                            </h1>
+                            <button
+                                type="button"
+                                onClick={() => handleSelectSection('rooms')}
+                                className="text-left group focus:outline-none"
+                                aria-label="Ir al lobby principal"
+                            >
+                                <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent group-hover:opacity-90 transition-opacity">
+                                    {bingoTitle}
+                                </h1>
+                            </button>
                             <p className="text-slate-400 text-sm mt-1">
                                 Bienvenido, {userData.nombreCompleto}
                             </p>

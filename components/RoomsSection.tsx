@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Users, Plus, Search, Filter, Sparkles, ShieldCheck, Copy, Crown, Globe, RefreshCw, User as UserIcon, Coins } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Users, Plus, Search, Filter, Sparkles, ShieldCheck, Copy, Crown, Globe, RefreshCw, User as UserIcon, Coins, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface RoomsSectionProps {
   rooms: any[];
@@ -9,10 +9,13 @@ interface RoomsSectionProps {
   onRefresh: () => void;
 }
 
+const ITEMS_PER_PAGE = 6;
+
 const RoomsSection: React.FC<RoomsSectionProps> = ({ rooms, isLoading, onCreateRoom, onJoinRoom, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewFilter, setViewFilter] = useState<'all' | 'public' | 'private'>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
 
   const privateCount = rooms.filter(room => room.isPrivate).length;
   const publicCount = rooms.length - privateCount;
@@ -32,6 +35,23 @@ const RoomsSection: React.FC<RoomsSectionProps> = ({ rooms, isLoading, onCreateR
     });
   }, [rooms, searchTerm, viewFilter]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredRooms.length / ITEMS_PER_PAGE));
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchTerm, viewFilter, rooms]);
+
+  useEffect(() => {
+    if (currentPage > totalPages - 1) {
+      setCurrentPage(Math.max(totalPages - 1, 0));
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedRooms = useMemo(() => {
+    const start = currentPage * ITEMS_PER_PAGE;
+    return filteredRooms.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredRooms, currentPage]);
+
   const handleCopyId = async (roomId: string) => {
     try {
       if (typeof navigator === 'undefined' || !navigator.clipboard) {
@@ -44,6 +64,14 @@ const RoomsSection: React.FC<RoomsSectionProps> = ({ rooms, isLoading, onCreateR
     } catch (error) {
       console.error('Clipboard error', error);
     }
+  };
+
+  const handlePrevPage = () => {
+    setCurrentPage(prev => Math.max(prev - 1, 0));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages - 1));
   };
 
   return (
@@ -174,8 +202,33 @@ const RoomsSection: React.FC<RoomsSectionProps> = ({ rooms, isLoading, onCreateR
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredRooms.map((room) => {
+        <div className="space-y-6">
+          <div className="relative">
+            {totalPages > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={handlePrevPage}
+                  disabled={currentPage === 0}
+                  className="hidden md:flex absolute -left-16 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full border border-slate-700 bg-slate-900/80 text-white items-center justify-center shadow-lg disabled:opacity-30"
+                  aria-label="Ver salas anteriores"
+                >
+                  <ChevronLeft size={22} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextPage}
+                  disabled={currentPage === totalPages - 1}
+                  className="hidden md:flex absolute -right-16 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full border border-slate-700 bg-slate-900/80 text-white items-center justify-center shadow-lg disabled:opacity-30"
+                  aria-label="Ver más salas"
+                >
+                  <ChevronRight size={22} />
+                </button>
+              </>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {paginatedRooms.map((room) => {
             const formattedPrice = typeof room.pricePerCard === 'number'
               ? new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', minimumFractionDigits: 2 }).format(room.pricePerCard)
               : null;
@@ -242,7 +295,41 @@ const RoomsSection: React.FC<RoomsSectionProps> = ({ rooms, isLoading, onCreateR
               </div>
               </div>
             );
-          })}
+              })}
+            </div>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex flex-col items-center gap-3 text-sm text-slate-400">
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={handlePrevPage}
+                  disabled={currentPage === 0}
+                  className="flex md:hidden px-4 py-2 rounded-full border border-slate-700 text-white disabled:opacity-30"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <p>{`Página ${currentPage + 1} de ${totalPages}`}</p>
+                <button
+                  type="button"
+                  onClick={handleNextPage}
+                  disabled={currentPage === totalPages - 1}
+                  className="flex md:hidden px-4 py-2 rounded-full border border-slate-700 text-white disabled:opacity-30"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+              <div className="flex gap-2">
+                {Array.from({ length: totalPages }).map((_, index) => (
+                  <span
+                    key={index}
+                    className={`h-2.5 w-8 rounded-full transition-colors ${index === currentPage ? 'bg-emerald-400' : 'bg-slate-700'}`}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
