@@ -22,6 +22,20 @@ export interface ApiResponse {
     username: string;
     password: string;
   };
+  room?: {
+    id: string;
+    name: string;
+    adminId: string;
+    isPrivate: boolean;
+    createdAt: string;
+  };
+  rooms?: {
+    id: string;
+    name: string;
+    adminId: string;
+    isPrivate: boolean;
+    createdAt: string;
+  }[];
 }
 
 
@@ -37,6 +51,7 @@ export const SheetAPI = {
         },
       });
       const json = await response.json();
+      console.log("Login Response Raw:", json);
       return json;
     } catch (error) {
       console.error("Login Error:", error);
@@ -273,6 +288,51 @@ export const SheetAPI = {
       return json;
     } catch (error) {
       console.error("Update Profile Error:", error);
+      return { success: false, error: String(error) };
+    }
+  },
+
+  /**
+   * Create a new room
+   */
+  async createRoom(url: string, roomData: { name: string; password?: string; adminId: string }): Promise<ApiResponse> {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'create_room',
+          roomData
+        }),
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+      });
+      const json = await response.json();
+      return json;
+    } catch (error) {
+      console.error("Create Room Error:", error);
+      return { success: false, error: String(error) };
+    }
+  },
+
+  /**
+   * Get all active rooms
+   */
+  async getRooms(url: string): Promise<ApiResponse> {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'get_rooms'
+        }),
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+      });
+      const json = await response.json();
+      return json;
+    } catch (error) {
+      console.error("Get Rooms Error:", error);
       return { success: false, error: String(error) };
     }
   }

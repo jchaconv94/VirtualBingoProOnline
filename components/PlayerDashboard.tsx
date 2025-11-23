@@ -4,6 +4,8 @@ import { CartonData } from '../types.ts';
 import { SheetAPI } from '../services/googleSheetService.ts';
 import MyCardsSection from './MyCardsSection.tsx';
 import EditProfileModal from './EditProfileModal.tsx';
+import CreateRoomModal from './CreateRoomModal.tsx';
+import GameRoom from './GameRoom.tsx';
 
 interface PlayerDashboardProps {
     currentUser: {
@@ -33,6 +35,10 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
     const [isLoading, setIsLoading] = useState(false);
     const [userData, setUserData] = useState(currentUser);
 
+    // Room State
+    const [activeRoom, setActiveRoom] = useState<any | null>(null);
+    const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
+
     useEffect(() => {
         loadUserCards();
     }, [currentUser.idUser]);
@@ -52,7 +58,6 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
     };
 
     const handleProfileUpdated = () => {
-        // Reload user data from session storage
         const storedUser = JSON.parse(sessionStorage.getItem('bingo_user_data') || '{}');
         setUserData({
             idUser: storedUser.userId || currentUser.idUser,
@@ -62,6 +67,53 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
             telefono: storedUser.phone || currentUser.telefono
         });
     };
+
+    const handleCreateRoom = async (roomData: { name: string; password?: string }) => {
+        setIsLoading(true);
+        try {
+            const result = await SheetAPI.createRoom(sheetUrl, {
+                name: roomData.name,
+                password: roomData.password,
+                adminId: currentUser.idUser
+            });
+
+            if (result.success && result.room) {
+                setActiveRoom(result.room);
+                setShowCreateRoomModal(false);
+            } else {
+                console.error('Error creating room:', result.message);
+                alert(`Error al crear sala: ${result.message}`);
+            }
+        } catch (error) {
+            console.error('Error creating room:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleExitRoom = () => {
+        setActiveRoom(null);
+    };
+
+    // If in a room, render the GameRoom component
+    if (activeRoom) {
+        return (
+            <GameRoom
+                currentUser={{
+                    username: userData.usuario,
+                    fullName: userData.nombreCompleto,
+                    email: userData.email,
+                    userId: userData.idUser
+                }}
+                userRole="player" // Still a player role globally
+                sheetUrl={sheetUrl}
+                onLogout={onLogout}
+                isRoomAdmin={true} // They are admin of THIS room
+                roomData={activeRoom}
+                onExitRoom={handleExitRoom}
+            />
+        );
+    }
 
     const navItems = [
         { id: 'profile' as DashboardSection, label: 'Mi Perfil', icon: User, color: 'from-purple-500 to-pink-500' },
@@ -159,9 +211,21 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
                 )}
 
                 {activeSection === 'rooms' && (
-                    <RoomsSection currentUser={userData} sheetUrl={sheetUrl} />
+                    <RoomsSection
+                        currentUser={userData}
+                        sheetUrl={sheetUrl}
+                        onCreateRoom={() => setShowCreateRoomModal(true)}
+                    />
                 )}
             </div>
+
+            {/* Create Room Modal */}
+            {showCreateRoomModal && (
+                <CreateRoomModal
+                    onClose={() => setShowCreateRoomModal(false)}
+                    onCreate={handleCreateRoom}
+                />
+            )}
         </div>
     );
 };
@@ -305,7 +369,32 @@ const ProfileSection: React.FC<{
 };
 
 // Rooms Section Component
-const RoomsSection: React.FC<any> = ({ currentUser, sheetUrl }) => {
+const RoomsSection: React.FC<{
+    currentUser: any;
+    sheetUrl: string;
+    onCreateRoom: () => void;
+}> = ({ currentUser, sheetUrl, onCreateRoom }) => {
+    const [rooms, setRooms] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        loadRooms();
+    }, []);
+
+    const loadRooms = async () => {
+        setIsLoading(true);
+        try {
+            const result = await SheetAPI.getRooms(sheetUrl);
+            if (result.success && result.rooms) {
+                setRooms(result.rooms);
+            }
+        } catch (error) {
+            console.error('Error loading rooms:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -313,22 +402,66 @@ const RoomsSection: React.FC<any> = ({ currentUser, sheetUrl }) => {
                     <Users className="text-emerald-400" />
                     Salas de Bingo
                 </h2>
-                <button className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg transition-all transform hover:scale-105">
+                <button
+                    onClick={onCreateRoom}
+                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg transition-all transform hover:scale-105"
+                >
                     <Plus size={20} />
                     Crear Sala
                 </button>
             </div>
 
-            {/* Empty state */}
-            <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-12 text-center">
-                <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                <p className="text-slate-400 text-lg mb-2">No hay salas disponibles</p>
-                <p className="text-slate-500 text-sm mb-6">Crea una nueva sala para empezar a jugar</p>
-                <button className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold rounded-xl inline-flex items-center gap-2">
-                    <Plus size={20} />
-                    Crear Mi Primera Sala
-                </button>
-            </div>
+            {isLoading ? (
+                <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+                    <p className="text-slate-400">Cargando salas...</p>
+                </div>
+            ) : rooms.length === 0 ? (
+                /* Empty state */
+                <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-12 text-center">
+                    <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                    <p className="text-slate-400 text-lg mb-2">No hay salas disponibles</p>
+                    <p className="text-slate-500 text-sm mb-6">Crea una nueva sala para empezar a jugar</p>
+                    <button
+                        onClick={onCreateRoom}
+                        className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold rounded-xl inline-flex items-center gap-2"
+                    >
+                        <Plus size={20} />
+                        Crear Mi Primera Sala
+                    </button>
+                </div>
+            ) : (
+                /* Room List */
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {rooms.map((room) => (
+                        <div key={room.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 hover:border-emerald-500/50 transition-all">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="text-xl font-bold text-white mb-1">{room.name}</h3>
+                                    <p className="text-slate-400 text-xs">ID: {room.id}</p>
+                                </div>
+                                {room.isPrivate && (
+                                    <span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded-lg border border-amber-500/20">
+                                        Privada
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-2 text-slate-400 text-sm mb-6">
+                                <User size={14} />
+                                <span>Creado por Admin</span>
+                            </div>
+
+                            <button
+                                className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors font-medium"
+                                onClick={() => alert("La funcionalidad de unirse a salas estará disponible pronto.")}
+                            >
+                                Unirse a Sala
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
