@@ -154,9 +154,25 @@ const App: React.FC = () => {
       if (data) {
         const normalized = data.map(p => ({ ...p, name: toTitleCase(p.name), surname: toTitleCase(p.surname) }));
         setParticipants(prev => {
-          const currentIds = new Set(prev.map(p => p.id));
-          const hasChanges = normalized.length !== prev.length || normalized.some(p => !currentIds.has(p.id));
-          return hasChanges ? normalized : prev;
+          // Detectar cambios no solo en participantes nuevos, sino también en cartones de participantes existentes
+          if (normalized.length !== prev.length) {
+            return normalized; // Diferente cantidad de participantes
+          }
+
+          // Comparar cada participante para detectar cambios en sus cartones
+          const hasCardChanges = normalized.some(newP => {
+            const existingP = prev.find(p => p.id === newP.id);
+            if (!existingP) return true; // Participante nuevo
+
+            // Verificar si el número de cartones cambió
+            if (newP.cards.length !== existingP.cards.length) return true;
+
+            // Verificar si algún cartón es diferente (por ID)
+            const existingCardIds = new Set(existingP.cards.map(c => c.id));
+            return newP.cards.some(c => !existingCardIds.has(c.id));
+          });
+
+          return hasCardChanges ? normalized : prev;
         });
         if (!silent) addLog("Datos sincronizados desde la nube.");
       }
@@ -800,7 +816,7 @@ const App: React.FC = () => {
 
         <aside className="flex flex-col gap-4">
           {userRole === 'player' && (
-            <button 
+            <button
               onClick={handleBuyCards}
               className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-emerald-900/30 hover:bg-emerald-900/50 text-emerald-400 border border-emerald-900/50 font-semibold transition-all w-full"
             >
