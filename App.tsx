@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { Participant, GameState, Winner, TOTAL_BALLS, NUMBERS_PER_CARD, BingoCard, PatternKey, Prize } from './types.ts';
-import { generateBingoCardNumbers, generateId, checkWinners, WIN_PATTERNS, toTitleCase } from './utils/helpers.ts';
+import { generateBingoCardNumbers, generateId, generateUniqueId, checkWinners, WIN_PATTERNS, toTitleCase } from './utils/helpers.ts';
 import { exportToExcel, parseExcel, downloadCardImage, downloadAllCardsZip, generateBingoCardsPDF } from './services/exportService.ts';
 import { SheetAPI } from './services/googleSheetService.ts';
 import RegistrationPanel from './components/RegistrationPanel.tsx';
@@ -14,6 +14,7 @@ import EditTitleModal from './components/EditTitleModal.tsx';
 import ConnectionModal from './components/ConnectionModal.tsx';
 import LoginRegister from './components/LoginRegister.tsx';
 import BuyCardsModal from './components/BuyCardsModal.tsx';
+import PlayerDashboard from './components/PlayerDashboard.tsx';
 import { Maximize2, Minimize2, PanelLeftOpen, Edit, FileText, Image as ImageIcon, Cloud, RefreshCw, Loader2, Link, Zap, LogOut, Menu, X, Ticket } from 'lucide-react';
 import { useAlert, AlertAction } from './contexts/AlertContext.tsx';
 
@@ -31,7 +32,7 @@ const LS_KEYS = {
 };
 
 // URL por defecto proporcionada por el usuario
-const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbxsbwqe-tqzmxOgdDOhqi3EcpWQ0Ha0bKV1-YC7tShDGBs-OnGs7SdulXaEIDx0cOJl/exec";
+const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbz-ildqEKnMFJkXD19Vfp5u1aD35db5HCRK_aS5n2mQnyqSdKVBnPifOysTxWIfjHbm/exec";
 
 const loadFromStorage = <T,>(key: string, fallback: T): T => {
   try {
@@ -57,7 +58,7 @@ const App: React.FC = () => {
     const saved = sessionStorage.getItem('bingo_user_role');
     return (saved ? saved.toLowerCase().trim() : 'admin') as 'admin' | 'player';
   });
-  const [currentUser, setCurrentUser] = useState<{ username: string; fullName?: string; email?: string } | null>(() => {
+  const [currentUser, setCurrentUser] = useState<{ username: string; fullName?: string; email?: string; userId?: string } | null>(() => {
     const saved = sessionStorage.getItem('bingo_user_data');
     return saved ? JSON.parse(saved) : null;
   });
@@ -87,7 +88,6 @@ const App: React.FC = () => {
     const defaults = {
       drawnBalls: [],
       history: [],
-      lastCardSequence: 100,
       selectedPattern: 'NONE' as PatternKey,
       roundLocked: false,
       gameRound: 1,
@@ -230,23 +230,41 @@ const App: React.FC = () => {
     setIsLoginLoading(true);
     try {
       const result = await SheetAPI.login(sheetUrl, user, pass);
-      if (result.success) {
+      console.log('Login result:', result);
+
+      if (result.success && result.user) {
         setIsAuthenticated(true);
         sessionStorage.setItem('bingo_auth', 'true');
-        const rawRole = result.role || 'admin';
+
+        // Extract role from user object
+        const rawRole = result.user.rol || 'admin';
         const role = String(rawRole).toLowerCase().trim() as 'admin' | 'player';
         setUserRole(role);
         sessionStorage.setItem('bingo_user_role', role);
-        const userData = result.userData || { username: user };
+
+        // Store user data with proper field mapping
+        const userData = {
+          userId: result.user.idUser,
+          username: result.user.usuario,
+          fullName: result.user.nombreCompleto,
+          email: result.user.email,
+          phone: result.user.telefono,
+          role: role
+        };
         setCurrentUser(userData);
         sessionStorage.setItem('bingo_user_data', JSON.stringify(userData));
-        loadFromCloud();
+
+        // Only load cloud data for admin users
+        if (role === 'admin') {
+          loadFromCloud();
+        }
+
         return true;
       } else {
         return false;
       }
     } catch (e) {
-      console.error(e);
+      console.error('Login error:', e);
       return false;
     } finally {
       setIsLoginLoading(false);
@@ -254,15 +272,16 @@ const App: React.FC = () => {
   };
 
   const handleAddCard = async (participantId: string) => {
-    const newSeq = gameState.lastCardSequence + 1;
-    const newCardId = `C${newSeq.toString().padStart(4, '0')}`;
     const currentParticipant = participants.find(p => p.id === participantId);
     if (!currentParticipant) return;
+
+    // Generate UUID for card - globally unique
+    const newCardId = generateUniqueId('C');
     const newCard = { id: newCardId, numbers: generateBingoCardNumbers() };
     const updatedParticipant = { ...currentParticipant, cards: [newCard, ...currentParticipant.cards] };
-    setGameState(prev => ({ ...prev, lastCardSequence: newSeq }));
+
     setParticipants(prev => prev.map(p => p.id === participantId ? updatedParticipant : p));
-    syncToCloud('save', updatedParticipant);
+    await syncToCloud('save', updatedParticipant);
     const successActions: AlertAction[] = [
       { label: 'Descargar PNG', onClick: () => downloadCardImage(updatedParticipant, newCard, bingoTitle, bingoSubtitle), icon: <ImageIcon size={18} />, className: 'bg-slate-800 hover:bg-cyan-900/50 text-cyan-400 border-cyan-800' },
       { label: 'Descargar PDF', onClick: () => generateBingoCardsPDF(updatedParticipant, bingoTitle, bingoSubtitle, newCard.id), icon: <FileText size={18} />, className: 'bg-slate-800 hover:bg-emerald-900/50 text-emerald-400 border-emerald-800' }
@@ -276,14 +295,17 @@ const App: React.FC = () => {
       showAlert({ title: 'DNI Duplicado', message: `Ya existe un participante con ID ${data.dni}.`, type: 'warning' });
       return;
     }
-    const newParticipant: Participant = { id: generateId('P'), ...data, name: toTitleCase(data.name), surname: toTitleCase(data.surname), cards: [] };
-    let currentSeq = gameState.lastCardSequence;
+    const newParticipant: Participant = { id: generateUniqueId('P'), ...data, name: toTitleCase(data.name), surname: toTitleCase(data.surname), cards: [] };
+
+    // Generate cards with UUID-based IDs
     for (let i = 0; i < cardsCount; i++) {
-      currentSeq++;
-      newParticipant.cards.push({ id: `C${currentSeq.toString().padStart(4, '0')}`, numbers: generateBingoCardNumbers() });
+      newParticipant.cards.push({
+        id: generateUniqueId('C'),
+        numbers: generateBingoCardNumbers()
+      });
     }
+
     setParticipants(prev => [newParticipant, ...prev]);
-    setGameState(prev => ({ ...prev, lastCardSequence: currentSeq }));
     addLog(`Registrado ${newParticipant.name} con ${cardsCount} cartones`);
     syncToCloud('save', newParticipant);
     const successActions: AlertAction[] = [];
@@ -301,17 +323,27 @@ const App: React.FC = () => {
     if (!sheetUrl) return { success: false, message: 'Por favor configura la URL del Script de Google Sheets primero.' };
     setIsLoginLoading(true);
     try {
+      console.log('Calling register with:', data);
       const result = await SheetAPI.register(sheetUrl, data.fullName, data.email, data.phone);
+      console.log('Register result:', result);
+
       if (result.success) {
         const nameParts = data.fullName.split(' ');
         const name = nameParts[0];
         const surname = nameParts.slice(1).join(' ') || '';
-        const participantData = { name: name, surname: surname, dni: data.phone || generateId('DNI'), phone: data.phone, email: data.email };
+        const participantData = {
+          name,
+          surname,
+          dni: data.phone || generateUniqueId('DNI'),
+          phone: data.phone,
+          email: data.email,
+          userId: result.userId  // Use userId from new backend
+        };
         await handleRegister(participantData, 0);
       }
       return result;
     } catch (e) {
-      console.error(e);
+      console.error('Register error:', e);
       return { success: false, message: 'Error al registrar. Intente nuevamente.' };
     } finally {
       setIsLoginLoading(false);
@@ -321,20 +353,39 @@ const App: React.FC = () => {
   const handleBuyCards = () => { setShowBuyModal(true); };
 
   const executeBuyCards = async (quantity: number) => {
-    const currentParticipant = participants.find(p => currentUser && ((p.phone && p.phone === currentUser.username) || (p.name && currentUser.fullName && currentUser.fullName.toLowerCase().includes(p.name.toLowerCase()))));
+    // Find participant by userId instead of fragile phone/name matching
+    const currentParticipant = participants.find(p =>
+      currentUser && currentUser.userId && p.userId === currentUser.userId
+    );
+
     if (!currentParticipant) {
-      await showAlert({ title: 'Error', message: 'No se encontró tu registro de participante. Por favor contacta al administrador.', type: 'danger' });
+      await showAlert({
+        title: 'Error',
+        message: 'No se encontró tu registro de participante. Por favor contacta al administrador.',
+        type: 'danger'
+      });
       setShowBuyModal(false);
       return;
     }
+
     setIsSyncing(true);
     try {
-      for (let i = 0; i < quantity; i++) { await handleAddCard(currentParticipant.id); }
+      for (let i = 0; i < quantity; i++) {
+        await handleAddCard(currentParticipant.id);
+      }
       setShowBuyModal(false);
-      await showAlert({ title: 'Compra Exitosa', message: `Has comprado ${quantity} cartones exitosamente.`, type: 'success' });
+      await showAlert({
+        title: 'Compra Exitosa',
+        message: `Has comprado ${quantity} cartones exitosamente.`,
+        type: 'success'
+      });
     } catch (error) {
       console.error(error);
-      await showAlert({ title: 'Error', message: 'Hubo un problema al procesar la compra.', type: 'danger' });
+      await showAlert({
+        title: 'Error',
+        message: 'Hubo un problema al procesar la compra.',
+        type: 'danger'
+      });
     } finally {
       setIsSyncing(false);
     }
@@ -536,9 +587,7 @@ const App: React.FC = () => {
       if (confirmed) {
         const normalizedParticipants = uniqueNewParticipants.map(p => ({ ...p, name: toTitleCase(p.name), surname: toTitleCase(p.surname) }));
         setParticipants(prev => [...normalizedParticipants, ...prev]);
-        let maxSeq = gameState.lastCardSequence;
-        normalizedParticipants.forEach(p => p.cards.forEach(c => { const num = parseInt(c.id.replace(/\D/g, '')); if (!isNaN(num) && num > maxSeq) maxSeq = num; }));
-        setGameState(prev => ({ ...prev, lastCardSequence: maxSeq }));
+        // No need to track lastCardSequence anymore - cards use UUIDs
         if (sheetUrl) {
           addLog("Iniciando carga masiva a la nube...");
           setIsSyncing(true);
@@ -615,6 +664,25 @@ const App: React.FC = () => {
           />
         )}
       </>
+    );
+  }
+
+  // --- RENDER PLAYER VIEW IF AUTHENTICATED AS PLAYER ---
+  if (userRole === 'player' && currentUser) {
+    return (
+      <PlayerDashboard
+        currentUser={{
+          idUser: currentUser.userId || currentUser.username,
+          nombreCompleto: currentUser.fullName || currentUser.username,
+          email: currentUser.email || '',
+          usuario: currentUser.username,
+          telefono: currentUser.phone
+        }}
+        sheetUrl={sheetUrl}
+        onLogout={handleLogout}
+        bingoTitle={bingoTitle}
+        bingoSubtitle={bingoSubtitle}
+      />
     );
   }
 

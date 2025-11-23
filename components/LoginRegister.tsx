@@ -65,8 +65,12 @@ const LoginRegister: React.FC<LoginRegisterProps> = ({ onLogin, onRegister, isLo
         setSuccess('');
         setGeneratedCredentials(null);
 
+        // Debug logging
+        console.log('Register Submit - fullName:', fullName, 'email:', email, 'phone:', phone);
+
         if (!fullName || !email) {
             setError('Por favor complete todos los campos obligatorios');
+            console.log('Validation failed - fullName:', fullName, 'email:', email);
             return;
         }
 
@@ -78,6 +82,7 @@ const LoginRegister: React.FC<LoginRegisterProps> = ({ onLogin, onRegister, isLo
         }
 
         const result = await onRegister({ fullName, email, phone });
+
 
         if (result.success && result.credentials) {
             setSuccess('¡Registro exitoso! Guarde sus credenciales:');
@@ -205,7 +210,7 @@ const LoginRegister: React.FC<LoginRegisterProps> = ({ onLogin, onRegister, isLo
                             </div>
 
                             {!generatedCredentials ? (
-                                <form onSubmit={handleRegisterSubmit} className="space-y-6">
+                                <form onSubmit={handleRegisterSubmit} noValidate className="space-y-6">
                                     <div className="space-y-4">
                                         <div className="relative group">
                                             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-400 transition-colors">

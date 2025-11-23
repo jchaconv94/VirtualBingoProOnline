@@ -40,9 +40,29 @@ export const generateBingoCardNumbers = (): number[] => {
   return grid;
 };
 
-export const generateId = (prefix: string = ''): string => {
-  return `${prefix}${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(-4)}`.toUpperCase();
+/**
+ * Generates a globally unique ID using crypto.randomUUID()
+ * Falls back to timestamp + random if crypto.randomUUID is not available
+ * @param prefix Optional prefix for the ID (e.g., 'C' for cards, 'P' for participants)
+ */
+export const generateUniqueId = (prefix: string = ''): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    const uuid = crypto.randomUUID();
+    return prefix ? `${prefix}_${uuid}` : uuid;
+  }
+
+  // Fallback for older browsers
+  const timestamp = Date.now().toString(36);
+  const randomPart = Math.random().toString(36).substring(2, 15);
+  const randomPart2 = Math.random().toString(36).substring(2, 15);
+  return `${prefix}${timestamp}${randomPart}${randomPart2}`.toUpperCase();
 };
+
+/**
+ * @deprecated Use generateUniqueId() instead for better uniqueness guarantees
+ * Kept for backward compatibility
+ */
+export const generateId = generateUniqueId;
 
 /**
  * Convierte un texto a formato Title Case (primera letra de cada palabra en mayúscula).

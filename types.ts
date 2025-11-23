@@ -5,12 +5,32 @@ export interface BingoCard {
   isInvalid?: boolean; // New flag to mark void cards
 }
 
+// New interface for user data in restructured database
+export interface UserData {
+  idUser: string;
+  nombreCompleto: string;
+  email: string;
+  telefono: string;
+  usuario: string;
+  rol: 'admin' | 'player';
+  fechaRegistro: string;
+}
+
+// New interface for carton data in restructured database
+export interface CartonData {
+  idUser: string;
+  idCarton: string;
+  numbers: number[]; // Array of 24 numbers (no free space in sheet)
+}
+
 export interface Participant {
-  id: string;
+  id: string;  // UUID
+  userId?: string;  // UUID - Links to User (optional for backward compatibility)
   name: string;
   surname: string;
   dni: string;
   phone?: string;
+  email?: string;  //User email for communication
   cards: BingoCard[];
 }
 
@@ -37,15 +57,15 @@ export interface Prize {
   isAwarded: boolean;
 }
 
-export type PatternKey = 
+export type PatternKey =
   | 'NONE'
-  | 'FULL' 
-  | 'X' 
-  | 'L' 
-  | 'FRAME' 
-  | 'CORNERS' 
-  | 'LETTER_E' 
-  | 'LETTER_H' 
+  | 'FULL'
+  | 'X'
+  | 'L'
+  | 'FRAME'
+  | 'CORNERS'
+  | 'LETTER_E'
+  | 'LETTER_H'
   | 'CENTER'
   | 'LETTER_N'
   | 'LETTER_I'
@@ -65,7 +85,7 @@ export interface WinPattern {
 export interface GameState {
   drawnBalls: number[];
   history: string[];
-  lastCardSequence: number;
+  // lastCardSequence removed - now using UUIDs for card IDs
   selectedPattern: PatternKey;
   roundLocked?: boolean;
   gameRound: number; // Tracks the current round sequence (increments on partial reset)
