@@ -220,7 +220,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
 
         // Check winners
         if (gameState.selectedPattern !== 'NONE') {
-            const newWinners = checkWinners(participants, newDrawnBalls, gameState.selectedPattern, gameState.gameRound);
+            const newWinners = checkWinners(participants, newDrawnBalls, winners, gameState.selectedPattern, gameState.gameRound);
             const previousWinnerIds = new Set(winners.map(w => w.cardId));
             const brandNewWinners = newWinners.filter(w => !previousWinnerIds.has(w.cardId));
 
