@@ -26,15 +26,14 @@ const ConnectionModal: React.FC<Props> = ({ currentUrl, currentAutoSync, current
     setIsTesting(true);
     setStatus('idle');
 
-    // Probamos una lectura simple
-    const result = await SheetAPI.fetchAll(url);
+    const result = await SheetAPI.testConnection(url);
 
-    if (result !== null) {
+    if (result.success) {
       setStatus('success');
-      setStatusMsg('Conexión exitosa. Se encontraron ' + result.length + ' registros.');
+      setStatusMsg(result.message);
     } else {
       setStatus('error');
-      setStatusMsg('No se pudo conectar. Verifica la URL y permisos.');
+      setStatusMsg(result.message || 'No se pudo conectar. Verifica la URL y permisos.');
     }
     setIsTesting(false);
   };

@@ -40,6 +40,40 @@ export interface ApiResponse {
 
 
 export const SheetAPI = {
+  async testConnection(url: string): Promise<{ success: boolean; message: string; count?: number; }> {
+    try {
+      const endpoint = `${url}?action=read`;
+      const response = await fetch(endpoint);
+      const json = await response.json();
+
+      if (json.success) {
+        const count = Array.isArray(json.data) ? json.data.length : undefined;
+        return {
+          success: true,
+          message: count !== undefined ? `Conexión exitosa. Se encontraron ${count} registros.` : 'Conexión exitosa.',
+          count
+        };
+      }
+
+      if (json.status === 'active') {
+        return {
+          success: true,
+          message: json.message || 'Conexión verificada. El script respondió correctamente.'
+        };
+      }
+
+      return {
+        success: false,
+        message: json.message || 'Respuesta inesperada del Apps Script.'
+      };
+    } catch (error) {
+      console.error('Test Connection Error:', error);
+      return {
+        success: false,
+        message: String(error)
+      };
+    }
+  },
   // Método para autenticación
   async login(url: string, user: string, pass: string): Promise<ApiResponse> {
     try {

@@ -60,7 +60,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
     });
     const [syncInterval, setSyncInterval] = useState<number>(() => {
         const saved = localStorage.getItem(LS_KEYS.SYNC_INTERVAL);
-        return saved ? JSON.parse(saved) : 5000;
+        return saved ? JSON.parse(saved) : 2000;
     });
 
     const [isSyncing, setIsSyncing] = useState(false);

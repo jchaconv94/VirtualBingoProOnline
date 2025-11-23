@@ -8,6 +8,7 @@ import { useAlert } from './contexts/AlertContext.tsx';
 
 // Default configuration
 const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzBi8fC17hQt_xaGbuG-SeAFmaH1W_PpSYVRHP1fCeE3HfurFchw2yQPmUqqLEZWs65/exec";
+const SYNC_INTERVAL_KEY = 'bingo_sync_interval_v1';
 
 const App: React.FC = () => {
   const { showAlert } = useAlert();
@@ -21,7 +22,16 @@ const App: React.FC = () => {
   // --- Config State ---
   const [sheetUrl, setSheetUrl] = useState<string>(DEFAULT_SHEET_URL);
   const [autoSync, setAutoSync] = useState<boolean>(true); // Managed by GameRoom/ConnectionModal mostly, but kept here for initial pass
-  const [syncInterval, setSyncInterval] = useState<number>(5000);
+  const [syncInterval, setSyncInterval] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(SYNC_INTERVAL_KEY);
+      if (saved) {
+        const parsed = Number(JSON.parse(saved));
+        return Number.isFinite(parsed) ? parsed : 2000;
+      }
+    }
+    return 2000;
+  });
   const [showConnectionModal, setShowConnectionModal] = useState(false);
 
   // --- Global Settings ---
@@ -41,6 +51,14 @@ const App: React.FC = () => {
       setIsAuthenticated(true);
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SYNC_INTERVAL_KEY, JSON.stringify(syncInterval));
+    } catch (err) {
+      console.warn('No se pudo guardar la frecuencia de sync', err);
+    }
+  }, [syncInterval]);
 
   // No persistence: the URL stays tied to the constant unless changed during the current session
 
