@@ -496,33 +496,33 @@ function getAllCards() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAMES.CARTONES);
-    
+
     if (!sheet) {
       throw new Error('CARTONES sheet not found. Please initialize the database first.');
     }
-    
+
     const data = sheet.getDataRange().getValues();
     const cards = [];
-    
-    // Get all cards (skip header row)
+
+    // Skip header row
     for (let i = 1; i < data.length; i++) {
       const numbers = [];
-      for (let j = 2; j < 26; j++) { // Columns 2-25 are N1-N24
+      for (let j = 2; j < 26; j++) {
         numbers.push(data[i][j]);
       }
-      
+
       cards.push({
         idUser: data[i][0],
         idCarton: data[i][1],
         numbers: numbers
       });
     }
-    
+
     return {
       success: true,
-      cards: cards
+      cards
     };
-    
+
   } catch (error) {
     Logger.log('Error in getAllCards: ' + error.toString());
     return {

@@ -1,5 +1,5 @@
 
-import { Participant, Winner, WinPattern, PatternKey } from '../types.ts';
+import { Participant, Winner, WinPattern, PatternKey, CartonData, BingoCard } from '../types.ts';
 
 /**
  * Generates a classic 5x5 Bingo card distribution.
@@ -39,6 +39,33 @@ export const generateBingoCardNumbers = (): number[] => {
 
   return grid;
 };
+
+export const insertFreeSpace = (numbers: number[]): number[] => {
+  const cloned = [...numbers];
+  if (cloned.length === 24) {
+    cloned.splice(12, 0, 0);
+  }
+  return cloned;
+};
+
+export const removeFreeSpace = (numbers: number[]): number[] => {
+  const cloned = [...numbers];
+  if (cloned.length === 25) {
+    cloned.splice(12, 1);
+  }
+  return cloned;
+};
+
+export const cartonDataToBingoCard = (carton: CartonData): BingoCard => {
+  const numbersWithCenter = insertFreeSpace(carton.numbers);
+  return {
+    id: carton.idCarton,
+    numbers: numbersWithCenter
+  };
+};
+
+export const cartonListToBingoCards = (cartons: CartonData[]): BingoCard[] =>
+  cartons.map(cartonDataToBingoCard);
 
 /**
  * Generates a globally unique ID using crypto.randomUUID()

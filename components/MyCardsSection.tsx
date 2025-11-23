@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Ticket, Download, FileText, Search, Filter, Sparkles, ArrowRight } from 'lucide-react';
 import { CartonData } from '../types.ts';
 import { downloadCardImage, generateBingoCardsPDF } from '../services/exportService.ts';
+import { cartonDataToBingoCard } from '../utils/helpers.ts';
 
 interface MyCardsSectionProps {
     userCards: CartonData[];
@@ -25,18 +26,8 @@ const MyCardsSection: React.FC<MyCardsSectionProps> = ({
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
 
-    const convertToDisplayCard = (carton: CartonData) => {
-        const displayNumbers = [...carton.numbers];
-        displayNumbers.splice(12, 0, 0); // Insert free space at center
-
-        return {
-            id: carton.idCarton,
-            numbers: displayNumbers
-        };
-    };
-
     const handleDownloadCard = async (carton: CartonData) => {
-        const displayCard = convertToDisplayCard(carton);
+        const displayCard = cartonDataToBingoCard(carton);
         const participant = {
             id: currentUser.idUser,
             name: currentUser.nombreCompleto.split(' ')[0],
@@ -50,7 +41,7 @@ const MyCardsSection: React.FC<MyCardsSectionProps> = ({
     };
 
     const handleDownloadPDF = async (carton: CartonData) => {
-        const displayCard = convertToDisplayCard(carton);
+        const displayCard = cartonDataToBingoCard(carton);
         const participant = {
             id: currentUser.idUser,
             name: currentUser.nombreCompleto.split(' ')[0],

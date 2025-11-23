@@ -17,6 +17,7 @@ interface Props {
   roundLocked: boolean;
   isPaused?: boolean;
   onTogglePause?: () => void;
+  canControlGame?: boolean;
 }
 
 const getBingoLetter = (num: number): string => {
@@ -110,7 +111,8 @@ const GamePanel: React.FC<Props> = ({
   onTogglePrize,
   roundLocked,
   isPaused = false,
-  onTogglePause
+  onTogglePause,
+  canControlGame = true
 }) => {
   const [currentBall, setCurrentBall] = useState<number | string>('—');
   const [isAnimating, setIsAnimating] = useState(false);
@@ -141,6 +143,7 @@ const GamePanel: React.FC<Props> = ({
   }, [currentPattern]);
 
   const handleDraw = () => {
+    if (!canControlGame) return;
     if (isAnimating) return;
     setIsAnimating(true);
 
@@ -171,10 +174,28 @@ const GamePanel: React.FC<Props> = ({
 
   const isDrawDisabled = isAnimating || drawnBalls.length >= 75 || !hasParticipants || noPrizes || noPattern || allPrizesAwarded || roundLocked || isPaused;
 
+  const handlePatternSelect = (pattern: PatternKey) => {
+    if (!canControlGame) return;
+    onPatternChange(pattern);
+  };
+
+  const handleResetClick = () => {
+    if (!canControlGame) return;
+    onReset();
+  };
+
+  const handlePauseClick = () => {
+    if (!canControlGame || !onTogglePause) return;
+    onTogglePause();
+  };
+
   let buttonTooltip = "";
   let buttonLabel = "SACAR BOLILLA";
 
-  if (isPaused) {
+  if (!canControlGame) {
+    buttonTooltip = "Solo el administrador puede controlar el sorteo.";
+    buttonLabel = "CONTROL BLOQUEADO";
+  } else if (isPaused) {
     buttonTooltip = "Juego Pausado. Reanuda para continuar.";
     buttonLabel = "PAUSADO";
   } else if (noPrizes) {
@@ -326,8 +347,8 @@ const GamePanel: React.FC<Props> = ({
             <div className="flex items-center gap-2">
               <select
                 value={currentPattern}
-                onChange={(e) => onPatternChange(e.target.value as PatternKey)}
-                disabled={roundLocked}
+                onChange={(e) => handlePatternSelect(e.target.value as PatternKey)}
+                disabled={roundLocked || !canControlGame}
                 className={`
                   bg-slate-950 border text-white text-xs sm:text-sm rounded-lg block w-full px-2.5 py-1.5 cursor-pointer transition-all
                   ${currentPattern === 'NONE' ? 'border-amber-500 ring-1 ring-amber-500/50 text-amber-300 animate-pulse' : 'border-slate-700 focus:ring-cyan-500 focus:border-cyan-500 hover:border-cyan-500/50'}
@@ -340,9 +361,9 @@ const GamePanel: React.FC<Props> = ({
                 ))}
               </select>
               <button
-                onClick={() => setShowPatternPreview(true)}
-                disabled={currentPattern === 'NONE'}
-                className={`p-2 border rounded-lg transition-colors ${currentPattern === 'NONE' ? 'bg-slate-900 border-slate-800 text-slate-600' : 'bg-slate-800 hover:bg-slate-700 text-cyan-400 border-slate-700'}`}
+                onClick={() => canControlGame && setShowPatternPreview(true)}
+                disabled={currentPattern === 'NONE' || !canControlGame}
+                className={`p-2 border rounded-lg transition-colors ${currentPattern === 'NONE' || !canControlGame ? 'bg-slate-900 border-slate-800 text-slate-600' : 'bg-slate-800 hover:bg-slate-700 text-cyan-400 border-slate-700'}`}
               >
                 <Eye size={16} />
               </button>
@@ -524,9 +545,9 @@ const GamePanel: React.FC<Props> = ({
           </button>
 
           <div className="col-span-1 flex flex-col gap-2">
-            {gameStarted && (
+            {gameStarted && canControlGame && (
               <button
-                onClick={onTogglePause}
+                onClick={handlePauseClick}
                 className={`flex-1 rounded-lg transition-all flex flex-col items-center justify-center text-[10px] font-bold uppercase tracking-wider gap-1 border ${isPaused ? 'bg-amber-500 text-slate-900 border-amber-400 animate-pulse' : 'bg-slate-800 text-amber-500 border-slate-700 hover:bg-slate-700'}`}
                 title="Pausar sorteo para realizar acciones administrativas"
               >
@@ -536,8 +557,14 @@ const GamePanel: React.FC<Props> = ({
             )}
 
             <button
-              onClick={onReset}
-              className={`flex-1 rounded-lg transition-colors flex flex-col items-center justify-center text-[10px] font-bold uppercase tracking-wider gap-1 ${roundFinishedNeedsReset ? 'bg-amber-900/30 text-amber-400 border border-amber-500/30 animate-pulse hover:bg-amber-900/50' : 'bg-slate-800 text-slate-500 border border-slate-700 hover:text-slate-300 hover:bg-slate-700'}`}
+              onClick={handleResetClick}
+              disabled={!canControlGame}
+              className={`flex-1 rounded-lg transition-colors flex flex-col items-center justify-center text-[10px] font-bold uppercase tracking-wider gap-1 ${!canControlGame
+                ? 'bg-slate-900/60 text-slate-600 border border-slate-800 cursor-not-allowed'
+                : roundFinishedNeedsReset
+                  ? 'bg-amber-900/30 text-amber-400 border border-amber-500/30 animate-pulse hover:bg-amber-900/50'
+                  : 'bg-slate-800 text-slate-500 border border-slate-700 hover:text-slate-300 hover:bg-slate-700'
+              }`}
             >
               <RotateCcw size={16} />
               RESETEAR

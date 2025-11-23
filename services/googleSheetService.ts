@@ -29,6 +29,9 @@ export interface ApiResponse {
     isPrivate: boolean;
     createdAt: string;
     pricePerCard?: number;
+    participantsCount?: number;
+    cardsSold?: number;
+    totalPot?: number;
   };
   rooms?: {
     id: string;
@@ -37,6 +40,9 @@ export interface ApiResponse {
     isPrivate: boolean;
     createdAt: string;
     pricePerCard?: number;
+    participantsCount?: number;
+    cardsSold?: number;
+    totalPot?: number;
   }[];
 }
 

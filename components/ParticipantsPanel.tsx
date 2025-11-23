@@ -23,7 +23,7 @@ interface Props {
   prizes?: Prize[];
   totalCards?: number;
   userRole?: 'admin' | 'player';
-  currentUser?: { username: string; fullName?: string; email?: string } | null;
+  currentUser?: { username: string; fullName?: string; email?: string; userId?: string } | null;
 }
 
 const ParticipantsPanel: React.FC<Props> = ({ 
@@ -68,14 +68,17 @@ const ParticipantsPanel: React.FC<Props> = ({
     : null;
 
   const filteredParticipants = participants.filter(p => {
-    // Si es player, solo mostrar su propio participante
     if (userRole === 'player' && currentUser) {
-      const matchesCurrentUser = 
-        (currentUser.username && String(p.phone || '').toLowerCase() === String(currentUser.username).toLowerCase()) ||
-        (currentUser.fullName && (
-          String(p.name || '').toLowerCase() === String(currentUser.fullName.split(' ')[0]).toLowerCase() ||
-          `${String(p.name || '').toLowerCase()} ${String(p.surname || '').toLowerCase()}` === String(currentUser.fullName).toLowerCase()
-        ));
+      const normalizedUsername = currentUser.username?.toLowerCase();
+      const normalizedFullName = currentUser.fullName?.toLowerCase();
+      const normalizedEmail = currentUser.email?.toLowerCase();
+
+      const matchesCurrentUser =
+        (currentUser.userId && p.userId === currentUser.userId) ||
+        (normalizedUsername && String(p.dni || '').toLowerCase() === normalizedUsername) ||
+        (normalizedEmail && String(p.email || '').toLowerCase() === normalizedEmail) ||
+        (normalizedFullName && `${String(p.name || '').toLowerCase()} ${String(p.surname || '').toLowerCase()}`.trim() === normalizedFullName.trim());
+
       if (!matchesCurrentUser) return false;
     }
 

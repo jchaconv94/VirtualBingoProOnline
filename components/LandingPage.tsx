@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { SheetAPI } from '../services/googleSheetService.ts';
 import RoomsSection from './RoomsSection.tsx';
-import { Menu, Settings } from 'lucide-react';
+import { Menu } from 'lucide-react';
 
 interface LandingPageProps {
   sheetUrl: string;
@@ -53,12 +53,6 @@ const LandingPage: React.FC<LandingPageProps> = ({
               onClick={onLoginClick}
             >
               <Menu size={18} />
-            </button>
-            <button
-              onClick={onOpenSettings}
-              className="hidden lg:flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-full border border-slate-800 text-slate-400 hover:text-white hover:border-emerald-500/40"
-            >
-              <Settings size={14} /> Configuración
             </button>
             <button
               onClick={onLoginClick}

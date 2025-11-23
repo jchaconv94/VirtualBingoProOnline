@@ -6,10 +6,11 @@ import GameRoom from './components/GameRoom.tsx';
 import ConnectionModal from './components/ConnectionModal.tsx';
 import LandingPage from './components/LandingPage.tsx';
 import { useAlert } from './contexts/AlertContext.tsx';
+import { PlayerCardsProvider } from './contexts/PlayerCardsContext.tsx';
 
 // Default configuration
 
-const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzD9KfewL4B5wNwmssrk1BHRV2lkaUhLIAYk4ud4Hf1x9rjbGAmcVJ7aFtYBKrKpl9r/exec";
+const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzMVq92fONLdqelBgWJhrDIzOc4cteHhzxXYXldNW5YBGFdff_YFwZcSlk3pNleZ6oZ/exec";
 const SYNC_INTERVAL_KEY = 'bingo_sync_interval_v1';
 
 const App: React.FC = () => {
@@ -204,33 +205,34 @@ const App: React.FC = () => {
     );
   }
 
-  if (userRole === 'player' && currentUser) {
-    return (
-      <PlayerDashboard
-        currentUser={{
-          idUser: currentUser.userId || currentUser.username,
-          nombreCompleto: currentUser.fullName || currentUser.username,
-          email: currentUser.email || '',
-          usuario: currentUser.username,
-          telefono: currentUser.phone
-        }}
-        sheetUrl={sheetUrl}
-        onLogout={handleLogout}
-        bingoTitle={bingoTitle}
-        bingoSubtitle={bingoSubtitle}
-      />
-    );
-  }
-
-  // Admin View -> GameRoom
-  return (
+  const authenticatedView = userRole === 'player' && currentUser ? (
+    <PlayerDashboard
+      currentUser={{
+        idUser: currentUser.userId || currentUser.username,
+        nombreCompleto: currentUser.fullName || currentUser.username,
+        email: currentUser.email || '',
+        usuario: currentUser.username,
+        telefono: currentUser.phone
+      }}
+      sheetUrl={sheetUrl}
+      onLogout={handleLogout}
+      bingoTitle={bingoTitle}
+      bingoSubtitle={bingoSubtitle}
+    />
+  ) : (
     <GameRoom
       currentUser={currentUser}
       userRole="admin"
       sheetUrl={sheetUrl}
       onLogout={handleLogout}
-      isRoomAdmin={true} // Global admin is always room admin
+      isRoomAdmin={true}
     />
+  );
+
+  return (
+    <PlayerCardsProvider sheetUrl={sheetUrl} userId={currentUser?.userId}>
+      {authenticatedView}
+    </PlayerCardsProvider>
   );
 };
 

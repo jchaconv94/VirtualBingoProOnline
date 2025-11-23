@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Users, Plus, Search, Filter, Sparkles, ShieldCheck, Copy, Crown, Globe, RefreshCw, User as UserIcon, Coins, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, Plus, Search, Filter, Sparkles, ShieldCheck, Copy, Crown, Globe, RefreshCw, User as UserIcon, Coins, ChevronLeft, ChevronRight, PiggyBank } from 'lucide-react';
 
 interface RoomsSectionProps {
   rooms: any[];
@@ -10,6 +10,17 @@ interface RoomsSectionProps {
 }
 
 const ITEMS_PER_PAGE = 6;
+
+const currencyFormatter = new Intl.NumberFormat('es-PE', {
+  style: 'currency',
+  currency: 'PEN',
+  minimumFractionDigits: 2
+});
+
+const formatCurrency = (value?: number) => {
+  if (typeof value !== 'number' || !isFinite(value)) return null;
+  return currencyFormatter.format(value);
+};
 
 const RoomsSection: React.FC<RoomsSectionProps> = ({ rooms, isLoading, onCreateRoom, onJoinRoom, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -229,9 +240,13 @@ const RoomsSection: React.FC<RoomsSectionProps> = ({ rooms, isLoading, onCreateR
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {paginatedRooms.map((room) => {
-            const formattedPrice = typeof room.pricePerCard === 'number'
-              ? new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', minimumFractionDigits: 2 }).format(room.pricePerCard)
-              : null;
+                const formattedPrice = formatCurrency(room.pricePerCard);
+                const formattedPot = formatCurrency(room.totalPot);
+                const cardsSold = typeof room.cardsSold === 'number'
+                  ? room.cardsSold
+                  : typeof room.participantsCount === 'number'
+                    ? room.participantsCount
+                    : undefined;
 
             return (
               <div key={room.id} className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/60 p-6 transition-all hover:border-emerald-400/60 hover:shadow-emerald-500/30 hover:shadow-xl">
@@ -266,6 +281,15 @@ const RoomsSection: React.FC<RoomsSectionProps> = ({ rooms, isLoading, onCreateR
                     <Coins size={16} className="text-emerald-300" />
                     <span>{formattedPrice ? `${formattedPrice} por cartón` : 'Precio pendiente'}</span>
                   </div>
+                  {formattedPot && (
+                    <div className="flex items-center gap-2">
+                      <PiggyBank size={16} className="text-amber-300" />
+                      <span>Pozo acumulado: {formattedPot}</span>
+                      {typeof cardsSold === 'number' && (
+                        <span className="text-xs text-slate-500">({cardsSold} cartones)</span>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <Sparkles size={16} className="text-emerald-300" />
                     <span>ID: {room.id}</span>

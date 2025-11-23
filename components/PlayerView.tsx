@@ -1,8 +1,9 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import { LogOut, Ticket, Download, FileText, Sparkles, ArrowRight, DoorOpen, ShoppingCart } from 'lucide-react';
-import { BingoCard, CartonData } from '../types.ts';
+import { CartonData } from '../types.ts';
 import { SheetAPI } from '../services/googleSheetService.ts';
 import { downloadCardImage, generateBingoCardsPDF } from '../services/exportService.ts';
+import { cartonDataToBingoCard } from '../utils/helpers.ts';
 
 interface PlayerViewProps {
     currentUser: {
@@ -46,9 +47,7 @@ const PlayerView: React.FC<PlayerViewProps> = ({
         setIsLoading(true);
         try {
             const result = await SheetAPI.getUserCards(sheetUrl, currentUser.idUser);
-            if (result.success && result.cards) {
-                setUserCards(result.cards);
-            }
+            if (result.success && result.cards) { setUserCards(result.cards); }
         } catch (error) {
             console.error('Error loading cards:', error);
         } finally {
@@ -57,19 +56,8 @@ const PlayerView: React.FC<PlayerViewProps> = ({
     };
 
 
-    const convertToDisplayCard = (carton: CartonData): BingoCard => {
-        // Convert 24 numbers to 25 (with center free space at index 12)
-        const displayNumbers = [...carton.numbers];
-        displayNumbers.splice(12, 0, 0); // Insert free space at center
-
-        return {
-            id: carton.idCarton,
-            numbers: displayNumbers
-        };
-    };
-
     const handleDownloadCard = async (carton: CartonData) => {
-        const displayCard = convertToDisplayCard(carton);
+        const displayCard = cartonDataToBingoCard(carton);
         const participant = {
             id: currentUser.idUser,
             name: currentUser.nombreCompleto.split(' ')[0],
@@ -83,7 +71,7 @@ const PlayerView: React.FC<PlayerViewProps> = ({
     };
 
     const handleDownloadPDF = async (carton: CartonData) => {
-        const displayCard = convertToDisplayCard(carton);
+        const displayCard = cartonDataToBingoCard(carton);
         const participant = {
             id: currentUser.idUser,
             name: currentUser.nombreCompleto.split(' ')[0],

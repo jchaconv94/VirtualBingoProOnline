@@ -8,6 +8,7 @@ import CreateRoomModal from './CreateRoomModal.tsx';
 import GameRoom from './GameRoom.tsx';
 import JoinRoomModal from './JoinRoomModal.tsx';
 import RoomsSection from './RoomsSection.tsx';
+import { usePlayerCards } from '../contexts/PlayerCardsContext.tsx';
 
 interface PlayerDashboardProps {
     currentUser: {
@@ -25,6 +26,18 @@ interface PlayerDashboardProps {
 
 type DashboardSection = 'profile' | 'cards' | 'rooms';
 
+const parsePricePerCard = (value: unknown): number | undefined => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+    }
+    if (typeof value === 'string') {
+        const sanitized = value.replace(/[^0-9,.-]/g, '').replace(',', '.');
+        const parsed = Number(sanitized);
+        return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    return undefined;
+};
+
 const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
     currentUser,
     sheetUrl,
@@ -33,7 +46,6 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
     bingoSubtitle
 }) => {
     const [activeSection, setActiveSection] = useState<DashboardSection>('rooms');
-    const [userCards, setUserCards] = useState<CartonData[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [userData, setUserData] = useState(currentUser);
 
@@ -47,19 +59,32 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
+    const { cards: userCards, refreshCards } = usePlayerCards();
+
     useEffect(() => {
-        loadUserCards();
-    }, [currentUser.idUser]);
+        refreshCards();
+    }, [refreshCards]);
 
     const loadRooms = useCallback(async () => {
         setRoomsLoading(true);
         try {
             const result = await SheetAPI.getRooms(sheetUrl);
             if (result.success && result.rooms) {
-                const normalized = result.rooms.map(room => ({
-                    ...room,
-                    pricePerCard: typeof room.pricePerCard === 'number' ? room.pricePerCard : undefined
-                }));
+                const normalized = result.rooms.map(room => {
+                    const pricePerCard = parsePricePerCard(room.pricePerCard);
+                    const cardsSold = typeof room.cardsSold === 'number' ? room.cardsSold : undefined;
+                    return {
+                        ...room,
+                        pricePerCard,
+                        cardsSold,
+                        participantsCount: typeof room.participantsCount === 'number' ? room.participantsCount : undefined,
+                        totalPot: typeof room.totalPot === 'number'
+                            ? room.totalPot
+                            : (typeof pricePerCard === 'number' && typeof cardsSold === 'number'
+                                ? pricePerCard * cardsSold
+                                : undefined)
+                    };
+                });
                 setRooms(normalized);
             }
         } catch (error) {
@@ -94,20 +119,6 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
         };
     }, []);
 
-    const loadUserCards = async () => {
-        setIsLoading(true);
-        try {
-            const result = await SheetAPI.getUserCards(sheetUrl, currentUser.idUser);
-            if (result.success && result.cards) {
-                setUserCards(result.cards);
-            }
-        } catch (error) {
-            console.error('Error loading cards:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     const handleProfileUpdated = () => {
         const storedUser = JSON.parse(sessionStorage.getItem('bingo_user_data') || '{}');
         setUserData({
@@ -131,7 +142,8 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
 
             if (result.success && result.room) {
                 await loadRooms();
-                setActiveRoom({ ...result.room, pricePerCard: result.room.pricePerCard ?? roomData.pricePerCard });
+                const createdRoomPrice = parsePricePerCard(result.room.pricePerCard ?? roomData.pricePerCard);
+                setActiveRoom({ ...result.room, pricePerCard: createdRoomPrice });
                 setShowCreateRoomModal(false);
             } else {
                 console.error('Error creating room:', result.message);
@@ -168,13 +180,17 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
             const res = await SheetAPI.joinRoom(sheetUrl, roomId, userId, password);
             if (res.success) {
                 await loadRooms();
+                const normalizedSelectedRoom = selectedRoom ? {
+                    ...selectedRoom,
+                    pricePerCard: parsePricePerCard(selectedRoom.pricePerCard)
+                } : null;
                 const backendRoom = res.room ? {
                     ...res.room,
-                    pricePerCard: typeof res.room.pricePerCard === 'number' ? res.room.pricePerCard : undefined
+                    pricePerCard: parsePricePerCard(res.room.pricePerCard)
                 } : null;
                 const resolvedRoom = {
-                    ...(selectedRoom || backendRoom || { id: roomId }),
-                    pricePerCard: selectedRoom?.pricePerCard ?? backendRoom?.pricePerCard
+                    ...(normalizedSelectedRoom || backendRoom || { id: roomId }),
+                    pricePerCard: normalizedSelectedRoom?.pricePerCard ?? backendRoom?.pricePerCard
                 };
                 setActiveRoom(resolvedRoom);
                 setShowJoinModal(false);
