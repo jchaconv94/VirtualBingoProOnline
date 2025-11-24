@@ -104,13 +104,25 @@ export const SheetAPI = {
   // Método para registro de nuevos usuarios
   async register(url: string, fullName: string, email: string, phone: string): Promise<ApiResponse> {
     try {
-      // Generate username and password (similar to old backend)
-      const baseUsername = fullName.toLowerCase().replace(/\s+/g, '').substring(0, 10);
-      const randomSuffix = Math.floor(Math.random() * 10000);
-      const usuario = baseUsername + randomSuffix;
+      // Generate unique username with timestamp to avoid collisions
+      const baseUsername = fullName.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove accents
+        .replace(/[^a-z0-9]/g, '') // Remove special characters
+        .substring(0, 8);
+      
+      const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
+      const randomSuffix = Math.floor(Math.random() * 1000); // 0-999
+      const usuario = baseUsername + timestamp.slice(-3) + randomSuffix;
 
-      // Generate random password
-      const contraseña = Math.random().toString(36).substring(2, 10);
+      // Generate stronger random password (8 characters alphanumeric)
+      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      let contraseña = '';
+      for (let i = 0; i < 8; i++) {
+        contraseña += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+
+      // Clean phone number (remove spaces)
+      const cleanPhone = phone ? phone.replace(/\s/g, '') : '';
 
       const response = await fetch(url, {
         method: 'POST',
@@ -119,7 +131,7 @@ export const SheetAPI = {
           userData: {
             nombreCompleto: fullName,
             email: email,
-            telefono: phone,
+            telefono: cleanPhone,
             usuario: usuario,
             contraseña: contraseña,
             rol: 'player'
@@ -130,6 +142,40 @@ export const SheetAPI = {
         },
       });
       const json = await response.json();
+
+      // If username collision, retry with different suffix
+      if (!json.success && json.message && json.message.includes('nombre de usuario ya existe')) {
+        console.log('Username collision detected, retrying with new suffix...');
+        const retryRandomSuffix = Math.floor(Math.random() * 10000);
+        const retryUsuario = baseUsername + Date.now().toString().slice(-4) + retryRandomSuffix;
+        
+        const retryResponse = await fetch(url, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'register',
+            userData: {
+              nombreCompleto: fullName,
+              email: email,
+              telefono: cleanPhone,
+              usuario: retryUsuario,
+              contraseña: contraseña,
+              rol: 'player'
+            }
+          }),
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+          },
+        });
+        const retryJson = await retryResponse.json();
+        
+        if (retryJson.success) {
+          retryJson.credentials = {
+            username: retryUsuario,
+            password: contraseña
+          };
+        }
+        return retryJson;
+      }
 
       // Add credentials to response for display to user
       if (json.success) {

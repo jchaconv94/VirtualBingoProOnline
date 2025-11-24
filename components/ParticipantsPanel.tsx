@@ -88,7 +88,12 @@ const ParticipantsPanel: React.FC<Props> = ({
     const dni = String(p.dni || '').toLowerCase();
 
     return name.includes(term) || surname.includes(term) || dni.includes(term);
-  }).reverse();
+  }).sort((a, b) => {
+    // Sort by createdAt descending (most recent first)
+    const timeA = a.createdAt || 0;
+    const timeB = b.createdAt || 0;
+    return timeB - timeA;
+  });
 
   const startEdit = (p: Participant) => {
     setEditingId(p.id);

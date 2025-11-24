@@ -88,8 +88,17 @@ const LoginRegister: React.FC<LoginRegisterProps> = ({ onLogin, onRegister, isLo
         // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
-            setError('Por favor ingrese un email válido');
+            setError('Por favor ingrese un correo electrónico válido');
             return;
+        }
+
+        // Validate phone format (9 digits for Peru)
+        if (phone && phone.trim() !== '') {
+            const phoneRegex = /^9\d{8}$/;
+            if (!phoneRegex.test(phone.replace(/\s/g, ''))) {
+                setError('El teléfono debe tener 9 dígitos y empezar con 9 (ej: 987654321)');
+                return;
+            }
         }
 
         const result = await onRegister({ fullName, email, phone });
@@ -178,7 +187,7 @@ const LoginRegister: React.FC<LoginRegisterProps> = ({ onLogin, onRegister, isLo
         ctx.fillStyle = '#fbbf24';
         ctx.font = '13px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('⚠️ Guarde sus credenciales para poder iniciar sesión. Luego podrá cambiarlo.', canvas.width / 2, 350);
+        ctx.fillText('⚠️ Guarde sus credenciales para poder iniciar sesión. No podra recuperarlo luego', canvas.width / 2, 350);
 
         // Fecha
         ctx.fillStyle = '#64748b';
@@ -424,7 +433,7 @@ const LoginRegister: React.FC<LoginRegisterProps> = ({ onLogin, onRegister, isLo
                                             </div>
                                         </div>
                                         <div className="text-amber-400 text-xs text-center">
-                                            ⚠️ Importante: Guarde sus credenciales para poder iniciar sesión. Luego podrá cambiarlo.
+                                            ⚠️ Importante: Guarde sus credenciales para poder iniciar sesión. No podra recuperarlo luego.
                                         </div>
                                     </div>
 

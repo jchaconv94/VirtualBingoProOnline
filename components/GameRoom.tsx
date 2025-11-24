@@ -194,6 +194,9 @@ const GameRoom: React.FC<GameRoomProps> = ({
         const payload = derivePlayerParticipantFromCards(cartons);
         if (!payload) return;
 
+        // Add timestamp to track when cards were added/updated
+        payload.createdAt = Date.now();
+
         setParticipants(prev => {
             const idx = prev.findIndex(p => p.id === payload.id || (payload.userId && p.userId === payload.userId));
             if (idx >= 0) {
@@ -388,7 +391,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
             showAlert({ title: 'DNI Duplicado', message: `Ya existe un participante con ID ${data.dni}.`, type: 'warning' });
             return;
         }
-        const newParticipant: Participant = { id: generateUniqueId('P'), ...data, name: toTitleCase(data.name), surname: toTitleCase(data.surname), cards: [] };
+        const newParticipant: Participant = { id: generateUniqueId('P'), ...data, name: toTitleCase(data.name), surname: toTitleCase(data.surname), cards: [], createdAt: Date.now() };
 
         const newCards = [];
         for (let i = 0; i < cardsCount; i++) {
@@ -427,7 +430,8 @@ const GameRoom: React.FC<GameRoomProps> = ({
                     dni: row.dni,
                     email: row.email,
                     phone: row.phone,
-                    cards: cards
+                    cards: cards,
+                    createdAt: Date.now()
                 });
                 addedCount++;
             }

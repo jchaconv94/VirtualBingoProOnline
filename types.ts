@@ -33,6 +33,7 @@ export interface Participant {
   phone?: string;
   email?: string;  //User email for communication
   cards: BingoCard[];
+  createdAt?: number;  // Timestamp for ordering by registration date
 }
 
 export interface Winner {
