@@ -219,7 +219,7 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
                 userRole="player" // Still a player role globally
                 sheetUrl={sheetUrl}
                 onLogout={onLogout}
-                isRoomAdmin={currentUser.idUser === activeRoom.adminId} // True if the player is the room admin
+                isMaster={currentUser.idUser === activeRoom.adminId} // True if the player is the creator/master of this room
                 roomData={activeRoom}
                 onExitRoom={handleExitRoom}
             />

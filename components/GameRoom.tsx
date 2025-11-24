@@ -13,7 +13,7 @@ import PrizesPanel from './PrizesPanel.tsx';
 import EditTitleModal from './EditTitleModal.tsx';
 import ConnectionModal from './ConnectionModal.tsx';
 import BuyCardsModal from './BuyCardsModal.tsx';
-import { Maximize2, Minimize2, PanelLeftOpen, Edit, FileText, Image as ImageIcon, Cloud, RefreshCw, Loader2, Link, Zap, LogOut, Menu, X, ShoppingCart, Sparkles } from 'lucide-react';
+import { Maximize2, Minimize2, PanelLeftOpen, Edit, FileText, Image as ImageIcon, Cloud, RefreshCw, Loader2, Link, Zap, LogOut, Menu, X, ShoppingCart, Sparkles, DoorOpen, User } from 'lucide-react';
 import { useAlert, AlertAction } from '../contexts/AlertContext.tsx';
 import { usePlayerCards } from '../contexts/PlayerCardsContext.tsx';
 
@@ -46,7 +46,7 @@ interface GameRoomProps {
     userRole: 'admin' | 'player';
     sheetUrl: string;
     onLogout: () => void;
-    isRoomAdmin: boolean; // True if global admin or creator of the room
+    isMaster: boolean; // True if user is the creator/master of this specific room
     roomData?: any; // For future use with specific room data
     onExitRoom?: () => void; // For players to go back to dashboard
 }
@@ -56,7 +56,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
     userRole,
     sheetUrl: initialSheetUrl,
     onLogout,
-    isRoomAdmin,
+    isMaster,
     roomData,
     onExitRoom
 }) => {
@@ -197,21 +197,6 @@ const GameRoom: React.FC<GameRoomProps> = ({
             console.error('Error syncing participant after purchase', error);
         }
     }, [currentUser, sheetUrl, derivePlayerParticipantFromCards]);
-    const bannerDescription = hasValidCardPrice
-        ? (userRole === 'player'
-            ? `Cada cartón cuesta ${formatCurrency(cardPrice || 0)}. Los cartones que compres se vinculan a esta sala y aparecerán automáticamente en tu panel.`
-            : `Precio fijado en ${formatCurrency(cardPrice || 0)}. Asegúrate de sincronizar la sala después de cada compra para reflejarlo en Sheets.`)
-        : (userRole === 'player'
-            ? 'El administrador aún no ha definido un precio para los cartones en esta sala.'
-            : 'Define un precio para los cartones para habilitar las compras dentro de esta sala.');
-    const bannerSecondaryLabel = canPurchaseCards
-        ? 'Tus cartones se guardan solo en esta sala'
-        : userRole === 'player'
-            ? 'Esperando precio del administrador'
-            : hasValidCardPrice
-                ? 'Los jugadores verán aquí el botón de compra'
-                : 'Define un precio para habilitar compras';
-
 
     // --- Persistence ---
     useEffect(() => {
@@ -306,7 +291,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
 
     // Initial Load & Polling
     useEffect(() => {
-        if (sheetUrl && isRoomAdmin) {
+        if (sheetUrl && isMaster) {
             loadFromCloud();
         }
     }, []);
@@ -323,7 +308,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
 
     useEffect(() => {
         let intervalId: ReturnType<typeof setInterval>;
-        if (autoSync && sheetUrl && isRoomAdmin) {
+        if (autoSync && sheetUrl && isMaster) {
             intervalId = setInterval(() => {
                 loadFromCloud(true);
             }, syncInterval);
@@ -331,7 +316,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
         return () => {
             if (intervalId) clearInterval(intervalId);
         };
-    }, [autoSync, sheetUrl, syncInterval, isRoomAdmin]);
+    }, [autoSync, sheetUrl, syncInterval, isMaster]);
 
     // --- Game Logic Handlers ---
     const handleDrawBall = () => {
@@ -635,7 +620,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
                 onClick={() => setShowSidebar(false)}
             />
 
-            {isRoomAdmin && (
+            {isMaster && (
                 <aside
                     className={`fixed top-0 left-0 h-full w-full sm:w-[450px] bg-slate-900/95 border-r border-slate-800 shadow-2xl z-[100] transform transition-transform duration-300 ease-out overflow-y-auto custom-scrollbar p-4 flex flex-col gap-6 ${showSidebar ? 'translate-x-0' : '-translate-x-full'}`}
                 >
@@ -672,12 +657,17 @@ const GameRoom: React.FC<GameRoomProps> = ({
 
             <header className="sticky top-0 z-30 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between shadow-lg">
                 <div className="flex items-center gap-4">
-                    {isRoomAdmin && !showSidebar && (
+                    {isMaster && (
                         <button
-                            onClick={() => setShowSidebar(true)}
-                            className={`p-1.5 rounded-lg transition-colors border border-slate-700 bg-slate-800 text-cyan-400 hover:text-white hover:border-cyan-500/50`}
+                            onClick={() => setShowSidebar(!showSidebar)}
+                            className={`p-1.5 rounded-lg transition-colors border ${
+                                showSidebar 
+                                    ? 'border-cyan-500/50 bg-cyan-900/30 text-cyan-400' 
+                                    : 'border-slate-700 bg-slate-800 text-slate-400 hover:text-cyan-400 hover:border-cyan-500/30'
+                            }`}
+                            title={showSidebar ? "Cerrar menú de gestión" : "Abrir menú de gestión"}
                         >
-                            <PanelLeftOpen size={20} />
+                            <PanelLeftOpen size={20} className={showSidebar ? '' : 'rotate-180'} />
                         </button>
                     )}
 
@@ -689,112 +679,81 @@ const GameRoom: React.FC<GameRoomProps> = ({
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    {/* Desktop Menu */}
-                    <div className="hidden md:flex items-center gap-3">
-                        {isRoomAdmin && (
-                            <>
-                                <button
-                                    onClick={() => setShowConnectionModal(true)}
-                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${sheetUrl ? (isSyncing ? 'bg-amber-900/30 text-amber-400 border-amber-500/50' : 'bg-emerald-900/30 text-emerald-400 border-emerald-500/50') : 'bg-slate-800 text-slate-500 border-slate-700 hover:bg-slate-700'}`}
-                                    title={sheetUrl ? "Conectado a Google Sheets" : "Configurar Nube"}
-                                >
-                                    {isSyncing ? <Loader2 size={14} className="animate-spin" /> : (autoSync ? <Zap size={14} className="text-yellow-400 fill-yellow-400" /> : <Cloud size={14} />)}
-                                    <span className="hidden sm:inline">{sheetUrl ? (isSyncing ? 'Sincronizando...' : (autoSync ? 'Auto-Sync ON' : 'Online')) : 'Offline'}</span>
-                                </button>
-
-                                {sheetUrl && !isSyncing && (
-                                    <button
-                                        onClick={() => loadFromCloud(false)}
-                                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-emerald-400 border border-slate-700"
-                                        title="Forzar actualización desde Hoja de Cálculo"
-                                    >
-                                        <RefreshCw size={16} />
-                                    </button>
-                                )}
-
-                                <div className="w-px h-6 bg-slate-800 mx-1"></div>
-
-                                <button onClick={() => setShowTitleModal(true)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700">
-                                    <Edit size={18} />
-                                </button>
-                            </>
-                        )}
-
-                        {canPurchaseCards && (
+                <div className="flex items-center gap-2">
+                    {/* Admin Controls */}
+                    {userRole === 'admin' && (
+                        <div className="hidden md:flex items-center gap-2">
                             <button
-                                onClick={handleBuyCards}
-                                className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-200 border border-emerald-500/40 hover:bg-emerald-600/30 text-xs font-semibold"
+                                onClick={() => setShowConnectionModal(true)}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${sheetUrl ? (isSyncing ? 'bg-amber-900/30 text-amber-400 border-amber-500/50' : 'bg-emerald-900/30 text-emerald-400 border-emerald-500/50') : 'bg-slate-800 text-slate-500 border-slate-700 hover:bg-slate-700'}`}
+                                title={sheetUrl ? "Conectado a Google Sheets" : "Configurar Nube"}
                             >
-                                <ShoppingCart size={16} />
-                                Comprar ({formatCurrency(cardPrice || 0)})
+                                {isSyncing ? <Loader2 size={14} className="animate-spin" /> : (autoSync ? <Zap size={14} className="text-yellow-400 fill-yellow-400" /> : <Cloud size={14} />)}
+                                <span className="hidden lg:inline">{sheetUrl ? (isSyncing ? 'Sincronizando...' : (autoSync ? 'Auto-Sync ON' : 'Online')) : 'Offline'}</span>
                             </button>
-                        )}
 
-                        <button onClick={toggleFullScreen} className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700">
-                            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                            {sheetUrl && !isSyncing && (
+                                <button
+                                    onClick={() => loadFromCloud(false)}
+                                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-emerald-400 border border-slate-700"
+                                    title="Sincronizar ahora"
+                                >
+                                    <RefreshCw size={16} />
+                                </button>
+                            )}
+
+                            <button 
+                                onClick={() => setShowTitleModal(true)} 
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700"
+                                title="Editar título"
+                            >
+                                <Edit size={18} />
+                            </button>
+
+                            <div className="w-px h-6 bg-slate-700"></div>
+                        </div>
+                    )}
+
+                    {/* Player Buy Button */}
+                    {canPurchaseCards && (
+                        <button
+                            onClick={handleBuyCards}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-200 border border-emerald-500/40 hover:bg-emerald-600/30 text-xs font-semibold transition-all"
+                            title="Comprar cartones"
+                        >
+                            <ShoppingCart size={16} />
+                            <span className="hidden sm:inline">Comprar ({formatCurrency(cardPrice || 0)})</span>
+                            <span className="sm:hidden">Comprar</span>
                         </button>
+                    )}
 
-                        {onExitRoom && (
+                    {/* View Controls */}
+                    <button 
+                        onClick={toggleFullScreen} 
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all"
+                        title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+                    >
+                        {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                    </button>
+
+                    {/* Exit Room Button */}
+                    {onExitRoom && (
+                        <>
+                            <div className="w-px h-6 bg-slate-700"></div>
                             <button
                                 onClick={onExitRoom}
-                                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-sm font-medium"
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-900/20 hover:bg-amber-900/30 text-amber-300 border border-amber-700/40 text-xs font-medium transition-all"
+                                title="Salir de esta sala"
                             >
-                                Salir de Sala
+                                <DoorOpen size={16} />
+                                <span className="hidden sm:inline">Salir de Sala</span>
                             </button>
-                        )}
-
-                        {canPurchaseCards && (
-                            <button
-                                onClick={handleBuyCards}
-                                className="md:hidden px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-200 border border-emerald-500/40 text-xs font-semibold"
-                            >
-                                Comprar cartones
-                            </button>
-                        )}
-
-                        <button onClick={onLogout} className="p-1.5 rounded-lg bg-rose-950/30 hover:bg-rose-900/50 text-rose-400 border border-rose-900/50">
-                            <LogOut size={18} />
-                        </button>
-                    </div>
+                        </>
+                    )}
                 </div>
             </header>
 
             <main className="flex-1 p-4 max-w-[1920px] mx-auto w-full grid grid-cols-1 gap-4 transition-all duration-300 items-start xl:grid-cols-[1fr_400px] 2xl:grid-cols-[1fr_500px]">
-                <div className="col-span-full rounded-2xl border border-emerald-500/30 bg-emerald-900/10 p-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between shadow-lg shadow-emerald-900/20">
-                    <div>
-                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.4em] text-emerald-300">
-                            <Sparkles size={16} /> Sala activa
-                        </div>
-                        <p className="text-sm text-emerald-50/80 mt-3 max-w-2xl">
-                            {bannerDescription}
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                        {canPurchaseCards ? (
-                            <button
-                                onClick={handleBuyCards}
-                                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-bold shadow-lg shadow-emerald-900/30"
-                            >
-                                <ShoppingCart size={18} /> Comprar cartones
-                            </button>
-                        ) : (
-                            bannerSecondaryLabel && (
-                                <span className="text-xs text-slate-300 uppercase tracking-widest">
-                                    {bannerSecondaryLabel}
-                                </span>
-                            )
-                        )}
-                        {onExitRoom && (
-                            <button
-                                onClick={onExitRoom}
-                                className="px-4 py-2 rounded-xl border border-slate-700 text-slate-200 text-sm hover:bg-slate-800"
-                            >
-                                Salir de sala
-                            </button>
-                        )}
-                    </div>
-                </div>
                 <section className="flex flex-col gap-4">
                     <GamePanel
                         drawnBalls={gameState.drawnBalls}
@@ -808,7 +767,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
                         onTogglePrize={handleTogglePrize}
                         roundLocked={gameState.roundLocked || false}
                         isPaused={gameState.isPaused}
-                        canControlGame={isRoomAdmin}
+                        canControlGame={isMaster}
                     />
                 </section>
 
@@ -828,7 +787,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
                         onShareAllCards={handleShareAllCards}
                         prizes={prizes}
                         totalCards={totalCards}
-                        userRole={isRoomAdmin ? 'admin' : 'player'}
+                        userRole={isMaster ? 'admin' : 'player'}
                         currentUser={currentUser}
                     />
                 </aside>
@@ -858,7 +817,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
                     prizes={prizes}
                     allWinners={winners}
                     currentPattern={gameState.selectedPattern}
-                    userRole={isRoomAdmin ? 'admin' : 'player'}
+                    userRole={isMaster ? 'admin' : 'player'}
                 />
             )}
 
@@ -884,7 +843,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
                         setSheetUrl(url);
                         setAutoSync(newAutoSync);
                         setSyncInterval(newInterval);
-                        if (url && isRoomAdmin) loadFromCloud();
+                        if (url && isMaster) loadFromCloud();
                     }}
                     onClose={() => setShowConnectionModal(false)}
                     onSyncNow={() => loadFromCloud(false)}

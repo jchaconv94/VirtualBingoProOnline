@@ -225,7 +225,7 @@ const App: React.FC = () => {
       userRole="admin"
       sheetUrl={sheetUrl}
       onLogout={handleLogout}
-      isRoomAdmin={true}
+      isMaster={true}
     />
   );
 

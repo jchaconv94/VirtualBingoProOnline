@@ -68,6 +68,13 @@ const BuyCardsModal: React.FC<Props> = ({ onClose, onBuy, isLoading = false, pri
                 {/* Body */}
                 <div className="p-6 space-y-8">
 
+                    {/* Info Banner */}
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
+                        <p className="text-sm text-emerald-100 text-center leading-relaxed">
+                            Cada cartón cuesta {currencyFormatter.format(unitPrice)}. Los cartones que compres se vinculan a esta sala y aparecerán automáticamente en tu panel.
+                        </p>
+                    </div>
+
                     {/* Quantity Selector */}
                     <div className="flex flex-col items-center gap-4">
                         <span className="text-sm font-medium text-slate-400 uppercase tracking-wider">Cantidad</span>
