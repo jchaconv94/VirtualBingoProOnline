@@ -162,6 +162,18 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
         // Don't refresh cards when exiting - cards are room-specific
     };
 
+    const handleRoomUpdate = useCallback((updatedRoom: any) => {
+        // Update the activeRoom state
+        setActiveRoom(updatedRoom);
+        
+        // Also update the room in the rooms list
+        setRooms(prevRooms => 
+            prevRooms.map(room => 
+                room.id === updatedRoom.id ? { ...room, ...updatedRoom } : room
+            )
+        );
+    }, []);
+
     const handleSelectSection = (section: DashboardSection) => {
         setActiveSection(section);
         setIsProfileMenuOpen(false);
@@ -181,7 +193,7 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
             const userId = stored.userId || currentUser.idUser;
             const res = await SheetAPI.joinRoom(sheetUrl, roomId, userId, password);
             if (res.success) {
-                await loadRooms();
+                // No need to reload all rooms - just use the room data we have
                 const normalizedSelectedRoom = selectedRoom ? {
                     ...selectedRoom,
                     pricePerCard: parsePricePerCard(selectedRoom.pricePerCard)
@@ -222,6 +234,7 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({
                 isMaster={currentUser.idUser === activeRoom.adminId} // True if the player is the creator/master of this room
                 roomData={activeRoom}
                 onExitRoom={handleExitRoom}
+                onRoomUpdate={handleRoomUpdate}
             />
         );
     }

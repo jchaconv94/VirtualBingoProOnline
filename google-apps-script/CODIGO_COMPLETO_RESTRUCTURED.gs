@@ -452,6 +452,68 @@ function createCard(cardData) {
 }
 
 /**
+ * Create multiple cards at once for better performance
+ */
+function createMultipleCards(cardsData) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_NAMES.CARTONES);
+    
+    if (!sheet) {
+      throw new Error('CARTONES sheet not found. Please initialize the database first.');
+    }
+    
+    if (!Array.isArray(cardsData) || cardsData.length === 0) {
+      throw new Error('cardsData must be a non-empty array');
+    }
+    
+    const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const hasRoomColumn = header.includes('IdRoom');
+    const createdCards = [];
+    const rowsToAdd = [];
+    
+    for (let i = 0; i < cardsData.length; i++) {
+      const cardData = cardsData[i];
+      
+      if (!cardData.idRoom) {
+        throw new Error('All cards must include room ID');
+      }
+      
+      if (!cardData.numbers || cardData.numbers.length !== 24) {
+        throw new Error('Each card must have exactly 24 numbers');
+      }
+      
+      const cardId = generateCardId();
+      const newRow = hasRoomColumn
+        ? [cardData.idUser, cardData.idRoom, cardId, ...cardData.numbers]
+        : [cardData.idUser, cardId, ...cardData.numbers];
+      
+      rowsToAdd.push(newRow);
+      createdCards.push({ cardId: cardId, numbers: cardData.numbers });
+    }
+    
+    // Append all rows at once for better performance
+    if (rowsToAdd.length > 0) {
+      const startRow = sheet.getLastRow() + 1;
+      sheet.getRange(startRow, 1, rowsToAdd.length, rowsToAdd[0].length).setValues(rowsToAdd);
+    }
+    
+    return {
+      success: true,
+      message: `${createdCards.length} cartones creados exitosamente`,
+      cards: createdCards
+    };
+    
+  } catch (error) {
+    Logger.log('Error in createMultipleCards: ' + error.toString());
+    return {
+      success: false,
+      message: 'Error al crear cartones: ' + error.toString()
+    };
+  }
+}
+
+/**
  * Get all cards for a specific user (optionally filtered by room)
  */
 function getUserCards(userId, roomId) {
@@ -653,6 +715,19 @@ function createRoom(roomData) {
     
     sheet.appendRow(newRow);
     
+    // Get admin name from USERS sheet
+    const usersSheet = ss.getSheetByName(SHEET_NAMES.USERS);
+    let adminName = 'Admin';
+    if (usersSheet) {
+      const usersData = usersSheet.getDataRange().getValues();
+      for (let i = 1; i < usersData.length; i++) {
+        if (usersData[i][0] === roomData.adminId) { // IdUser is column A (index 0)
+          adminName = usersData[i][4] || usersData[i][1]; // Usuario (E, index 4) or Nombre Completo (B, index 1)
+          break;
+        }
+      }
+    }
+    
     return {
       success: true,
       message: 'Sala creada exitosamente',
@@ -660,6 +735,7 @@ function createRoom(roomData) {
         id: roomId,
         name: roomData.name,
         adminId: roomData.adminId,
+        adminName: adminName,
         isPrivate: !!roomData.password,
         createdAt: timestamp,
         pricePerCard: pricePerCard
@@ -671,6 +747,77 @@ function createRoom(roomData) {
     return {
       success: false,
       message: 'Error al crear sala: ' + error.toString()
+    };
+  }
+}
+
+/**
+ * Update room data (name, price, password)
+ */
+function updateRoom(roomId, roomData) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_NAMES.ROOMS);
+    
+    if (!sheet) {
+      return {
+        success: false,
+        message: 'No se encontró la hoja de salas'
+      };
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    let rowIndex = -1;
+    
+    // Find the room by ID
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === roomId) {
+        rowIndex = i + 1; // +1 because sheets are 1-indexed
+        break;
+      }
+    }
+    
+    if (rowIndex === -1) {
+      return {
+        success: false,
+        message: 'Sala no encontrada'
+      };
+    }
+    
+    // Update room data
+    // Column mapping: IdRoom(0), Name(1), AdminId(2), PricePerCard(3), Password(4), IsPrivate(5), CreatedAt(6), Estado(7)
+    if (roomData.name !== undefined) {
+      sheet.getRange(rowIndex, 2).setValue(roomData.name); // Column B (Name)
+    }
+    
+    if (roomData.pricePerCard !== undefined) {
+      const price = Number(roomData.pricePerCard) || 0;
+      sheet.getRange(rowIndex, 4).setValue(price); // Column D (PricePerCard)
+    }
+    
+    if (roomData.password !== undefined) {
+      const password = roomData.password || '';
+      const isPrivate = !!password;
+      sheet.getRange(rowIndex, 5).setValue(password); // Column E (Password)
+      sheet.getRange(rowIndex, 6).setValue(isPrivate); // Column F (IsPrivate)
+    }
+    
+    return {
+      success: true,
+      message: 'Sala actualizada exitosamente',
+      room: {
+        id: roomId,
+        name: roomData.name,
+        pricePerCard: roomData.pricePerCard,
+        isPrivate: !!roomData.password
+      }
+    };
+    
+  } catch (error) {
+    Logger.log('Error in updateRoom: ' + error.toString());
+    return {
+      success: false,
+      message: 'Error al actualizar sala: ' + error.toString()
     };
   }
 }
@@ -690,14 +837,28 @@ function getActiveRooms() {
     const data = sheet.getDataRange().getValues();
     const rooms = [];
     
+    // Get users data for admin name lookup
+    const usersSheet = ss.getSheetByName(SHEET_NAMES.USERS);
+    const usersData = usersSheet ? usersSheet.getDataRange().getValues() : [];
+    
     // Skip header
     for (let i = 1; i < data.length; i++) {
       // Check if active (Column 6 is Estado)
       if (data[i][7] === 'ACTIVE') {
+        // Find admin name
+        let adminName = 'Admin';
+        for (let j = 1; j < usersData.length; j++) {
+          if (usersData[j][0] === data[i][2]) { // Match adminId with IdUser
+            adminName = usersData[j][4] || usersData[j][1]; // Usuario (E, index 4) or Nombre Completo (B, index 1)
+            break;
+          }
+        }
+        
         rooms.push({
           id: data[i][0],
           name: data[i][1],
           adminId: data[i][2],
+          adminName: adminName,
           pricePerCard: Number(data[i][3]) || 0,
           isPrivate: data[i][5], // Boolean column
           createdAt: data[i][6]
@@ -842,6 +1003,10 @@ function doPost(e) {
         result = createCard(params.cardData);
         break;
         
+      case 'create_multiple_cards':
+        result = createMultipleCards(params.cardsData);
+        break;
+        
       case 'get_user_cards':
         result = getUserCards(params.userId, params.roomId);
         break;
@@ -860,6 +1025,10 @@ function doPost(e) {
 
       case 'create_room':
         result = createRoom(params.roomData);
+        break;
+
+      case 'update_room':
+        result = updateRoom(params.roomId, params.roomData);
         break;
 
       case 'get_rooms':

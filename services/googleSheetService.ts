@@ -248,6 +248,33 @@ export const SheetAPI = {
   },
 
   /**
+   * Create multiple cards at once (optimized for bulk purchases)
+   */
+  async createMultipleCards(url: string, idUser: string, cardsData: { numbers: number[]; roomId: string }[]): Promise<ApiResponse> {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'create_multiple_cards',
+          cardsData: cardsData.map(card => ({
+            idUser,
+            idRoom: card.roomId,
+            numbers: card.numbers
+          }))
+        }),
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+      });
+      const json = await response.json();
+      return json;
+    } catch (error) {
+      console.error("Create Multiple Cards Error:", error);
+      return { success: false, error: String(error) };
+    }
+  },
+
+  /**
    * Get all cards for a specific user
    */
   async getUserCards(url: string, userId: string, roomId?: string): Promise<ApiResponse> {
@@ -354,6 +381,30 @@ export const SheetAPI = {
       return json;
     } catch (error) {
       console.error("Create Room Error:", error);
+      return { success: false, error: String(error) };
+    }
+  },
+
+  /**
+   * Update room data (name, price, password)
+   */
+  async updateRoom(url: string, roomId: string, roomData: { name?: string; pricePerCard?: number; password?: string }): Promise<ApiResponse> {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'update_room',
+          roomId,
+          roomData
+        }),
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+      });
+      const json = await response.json();
+      return json;
+    } catch (error) {
+      console.error("Update Room Error:", error);
       return { success: false, error: String(error) };
     }
   },

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Users, Plus, Search, Filter, Sparkles, ShieldCheck, Copy, Crown, Globe, RefreshCw, User as UserIcon, Coins, ChevronLeft, ChevronRight, PiggyBank } from 'lucide-react';
+import { toTitleCase } from '../utils/helpers.ts';
 
 interface RoomsSectionProps {
   rooms: any[];
@@ -255,7 +256,7 @@ const RoomsSection: React.FC<RoomsSectionProps> = ({ rooms, isLoading, onCreateR
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{room.isPrivate ? 'Sala Privada' : 'Sala Pública'}</p>
-                    <h3 className="mt-2 text-2xl font-semibold text-white">{room.name}</h3>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">{room.name.toUpperCase()}</h3>
                   </div>
                   {room.isPrivate ? (
                     <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-200 border border-amber-400/30">
@@ -271,7 +272,7 @@ const RoomsSection: React.FC<RoomsSectionProps> = ({ rooms, isLoading, onCreateR
                 <div className="mt-6 space-y-3 text-sm text-slate-300">
                   <div className="flex items-center gap-2">
                     <UserIcon size={16} className="text-slate-500" />
-                    <span>Creado por Admin</span>
+                    <span>Creado por {room.adminName ? toTitleCase(room.adminName) : 'Admin'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <ShieldCheck size={16} className={room.isPrivate ? 'text-amber-300' : 'text-emerald-300'} />

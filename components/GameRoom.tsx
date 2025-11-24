@@ -13,7 +13,8 @@ import PrizesPanel from './PrizesPanel.tsx';
 import EditTitleModal from './EditTitleModal.tsx';
 import ConnectionModal from './ConnectionModal.tsx';
 import BuyCardsModal from './BuyCardsModal.tsx';
-import { Maximize2, Minimize2, PanelLeftOpen, Edit, FileText, Image as ImageIcon, Cloud, RefreshCw, Loader2, Link, Zap, LogOut, Menu, X, ShoppingCart, Sparkles, DoorOpen, User } from 'lucide-react';
+import EditRoomModal from './EditRoomModal.tsx';
+import { Maximize2, Minimize2, PanelLeftOpen, Edit, FileText, Image as ImageIcon, Cloud, RefreshCw, Loader2, Link, Zap, LogOut, Menu, X, ShoppingCart, Sparkles, DoorOpen, User, Settings } from 'lucide-react';
 import { useAlert, AlertAction } from '../contexts/AlertContext.tsx';
 import { usePlayerCards } from '../contexts/PlayerCardsContext.tsx';
 
@@ -49,6 +50,7 @@ interface GameRoomProps {
     isMaster: boolean; // True if user is the creator/master of this specific room
     roomData?: any; // For future use with specific room data
     onExitRoom?: () => void; // For players to go back to dashboard
+    onRoomUpdate?: (updatedRoom: any) => void; // Callback to notify parent of room updates
 }
 
 const GameRoom: React.FC<GameRoomProps> = ({
@@ -57,12 +59,21 @@ const GameRoom: React.FC<GameRoomProps> = ({
     sheetUrl: initialSheetUrl,
     onLogout,
     isMaster,
-    roomData,
-    onExitRoom
+    roomData: initialRoomData,
+    onExitRoom,
+    onRoomUpdate
 }) => {
     const { showAlert, showConfirm } = useAlert();
     const { refreshCards: refreshPlayerCards } = usePlayerCards();
+    
+    // Local state for room data to allow instant updates
+    const [roomData, setRoomData] = useState(initialRoomData);
     const activeRoomId = roomData?.id;
+
+    // Sync with prop changes
+    useEffect(() => {
+        setRoomData(initialRoomData);
+    }, [initialRoomData]);
 
     // --- Configuración de Nube ---
     const [sheetUrl, setSheetUrl] = useState<string>(initialSheetUrl);
@@ -128,6 +139,8 @@ const GameRoom: React.FC<GameRoomProps> = ({
     });
 
     const [showTitleModal, setShowTitleModal] = useState(false);
+    const [showEditRoomModal, setShowEditRoomModal] = useState(false);
+    const [isUpdatingRoom, setIsUpdatingRoom] = useState(false);
     const [currentBatchWinners, setCurrentBatchWinners] = useState<Winner[]>([]);
     const [viewingDetailsData, setViewingDetailsData] = useState<{
         winner: Winner;
@@ -579,19 +592,22 @@ const GameRoom: React.FC<GameRoomProps> = ({
         }
         setIsProcessingPurchase(true);
         try {
-            const createdCardIds: string[] = [];
+            // Generate all cards data at once
+            const cardsData = [];
             for (let i = 0; i < quantity; i++) {
                 const numbers = generateBingoCardNumbers();
                 const sheetNumbers = removeFreeSpace(numbers);
-                const response = await SheetAPI.createCard(sheetUrl, currentUser.userId, sheetNumbers, activeRoomId);
-                if (!response.success) {
-                    throw new Error(response.message || 'No se pudo registrar el cartón');
-                }
-                if (response.cardId) {
-                    createdCardIds.push(response.cardId);
-                }
+                cardsData.push({ numbers: sheetNumbers, roomId: activeRoomId });
             }
 
+            // Create all cards in a single API call
+            const response = await SheetAPI.createMultipleCards(sheetUrl, currentUser.userId, cardsData);
+            
+            if (!response.success) {
+                throw new Error(response.message || 'No se pudieron crear los cartones');
+            }
+
+            // Refresh cards from server
             const latestCards = await refreshPlayerCards(activeRoomId);
             await persistPlayerParticipant(latestCards);
 
@@ -610,6 +626,57 @@ const GameRoom: React.FC<GameRoomProps> = ({
             showAlert({ title: 'Error', message: 'No pudimos procesar la compra. Intenta nuevamente.', type: 'danger' });
         } finally {
             setIsProcessingPurchase(false);
+        }
+    };
+
+    const handleUpdateRoomData = async (data: { name: string; pricePerCard: number; password?: string }) => {
+        if (!sheetUrl || !activeRoomId) {
+            showAlert({
+                title: 'Error',
+                message: 'No se pudo identificar la sala o la conexión.',
+                type: 'danger'
+            });
+            return;
+        }
+
+        setIsUpdatingRoom(true);
+        try {
+            const response = await SheetAPI.updateRoom(sheetUrl, activeRoomId, data);
+            
+            if (response.success) {
+                // Update local roomData state immediately
+                const updatedRoomData = {
+                    ...roomData,
+                    name: data.name,
+                    pricePerCard: data.pricePerCard,
+                    password: data.password,
+                    isPrivate: !!data.password // Update isPrivate based on password
+                };
+                setRoomData(updatedRoomData);
+                
+                // Notify parent component (PlayerDashboard) of the update
+                if (onRoomUpdate) {
+                    onRoomUpdate(updatedRoomData);
+                }
+                
+                showAlert({
+                    title: 'Sala actualizada',
+                    message: `Los datos de la sala "${data.name}" se han actualizado correctamente.`,
+                    type: 'success'
+                });
+                setShowEditRoomModal(false);
+            } else {
+                throw new Error(response.message || 'Error al actualizar la sala');
+            }
+        } catch (error) {
+            console.error('Error updating room', error);
+            showAlert({
+                title: 'Error',
+                message: error instanceof Error ? error.message : 'No se pudieron actualizar los datos de la sala.',
+                type: 'danger'
+            });
+        } finally {
+            setIsUpdatingRoom(false);
         }
     };
 
@@ -671,11 +738,13 @@ const GameRoom: React.FC<GameRoomProps> = ({
                         </button>
                     )}
 
-                    <div className="flex flex-col">
-                        <h1 className="text-xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-600 leading-none uppercase">
-                            {bingoTitle}
-                        </h1>
-                        <span className="text-[10px] text-slate-500 font-medium leading-tight">{bingoSubtitle}</span>
+                    <div className="flex items-center gap-3">
+                        <div className="flex flex-col">
+                            <h1 className="text-xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-600 leading-none uppercase">
+                                {bingoTitle}
+                            </h1>
+                            <span className="text-[10px] text-slate-500 font-medium leading-tight">{bingoSubtitle}</span>
+                        </div>
                     </div>
                 </div>
 
@@ -722,7 +791,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
                             title="Comprar cartones"
                         >
                             <ShoppingCart size={16} />
-                            <span className="hidden sm:inline">Comprar ({formatCurrency(cardPrice || 0)})</span>
+                            <span className="hidden sm:inline">Comprar cartón ({formatCurrency(cardPrice || 0)})</span>
                             <span className="sm:hidden">Comprar</span>
                         </button>
                     )}
@@ -768,6 +837,11 @@ const GameRoom: React.FC<GameRoomProps> = ({
                         roundLocked={gameState.roundLocked || false}
                         isPaused={gameState.isPaused}
                         canControlGame={isMaster}
+                        roomName={roomData?.name}
+                        masterName={roomData?.adminName || 'Admin'}
+                        onEditRoom={() => setShowEditRoomModal(true)}
+                        isMaster={isMaster}
+                        userRole={userRole}
                     />
                 </section>
 
@@ -856,6 +930,17 @@ const GameRoom: React.FC<GameRoomProps> = ({
                     onBuy={executeBuyCards}
                     isLoading={isProcessingPurchase}
                     pricePerCard={cardPrice}
+                />
+            )}
+
+            {showEditRoomModal && roomData && (
+                <EditRoomModal
+                    currentRoomName={roomData.name || ''}
+                    currentPrice={cardPrice || 0}
+                    currentPassword={roomData.password}
+                    onClose={() => setShowEditRoomModal(false)}
+                    onSave={handleUpdateRoomData}
+                    isLoading={isUpdatingRoom}
                 />
             )}
         </div>

@@ -37,7 +37,7 @@ const JoinRoomModal: React.FC<JoinRoomModalProps> = ({ room, onClose, onJoin }) 
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div>
-            <p className="text-slate-300">Sala: <span className="font-bold text-white">{room.name}</span></p>
+            <p className="text-slate-300">Sala: <span className="font-bold text-white">{room.name.toUpperCase()}</span></p>
             <p className="text-slate-500 text-sm">ID: {room.id}</p>
           </div>
 
@@ -73,9 +73,30 @@ const JoinRoomModal: React.FC<JoinRoomModalProps> = ({ room, onClose, onJoin }) 
           )}
 
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium">Cancelar</button>
-            <button type="submit" disabled={isLoading} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-lg font-bold">
-              {isLoading ? 'Uniendo...' : 'Unirse'}
+            <button 
+              type="button" 
+              onClick={onClose} 
+              disabled={isLoading}
+              className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              Cancelar
+            </button>
+            <button 
+              type="submit" 
+              disabled={isLoading} 
+              className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-lg font-bold disabled:opacity-70 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Uniendo...
+                </>
+              ) : (
+                'Unirse'
+              )}
             </button>
           </div>
         </form>

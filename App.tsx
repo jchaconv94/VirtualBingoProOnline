@@ -10,7 +10,7 @@ import { PlayerCardsProvider } from './contexts/PlayerCardsContext.tsx';
 
 // Default configuration
 
-const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbxrC5h5DvXkb-kcCtga8uW6ZX098Z4PVhe0s7qoq9Nv_TQY9N53WpBx18u_jUxR7t62/exec";
+const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbxTBicDYEjZEi_FX4EKaNQzlpKFQHJWd6ClBUwAYs79wGwtVap83SJl_Pz5Y11pVqAp/exec";
 const SYNC_INTERVAL_KEY = 'bingo_sync_interval_v1';
 
 const App: React.FC = () => {
@@ -121,7 +121,7 @@ const App: React.FC = () => {
     try {
       const response = await SheetAPI.register(sheetUrl, data.fullName, data.email, data.phone);
       if (response.success) {
-        showAlert({ title: 'Éxito', message: 'Usuario registrado correctamente. Por favor inicia sesión.', type: 'success' });
+        // No mostrar alert aquí - el modal de credenciales ya indica el éxito
         return { success: true, credentials: response.credentials };
       } else {
         showAlert({ title: 'Error', message: response.message || 'Error al registrar usuario', type: 'danger' });
@@ -175,9 +175,8 @@ const App: React.FC = () => {
             }}
             onRegister={async (data) => {
               const result = await handleRegisterUser(data);
-              if (result.success) {
-                setAuthMode('login');
-              }
+              // No cambiar a login aquí - dejar que el usuario vea las credenciales
+              // El cambio a login se hace cuando el usuario hace clic en "IR AL LOGIN" en el modal de credenciales
               return result;
             }}
             isLoading={isLoginLoading}

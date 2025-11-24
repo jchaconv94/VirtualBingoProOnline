@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Lock, User, LogIn, AlertCircle, UserPlus, Mail, Phone, ChevronLeft } from 'lucide-react';
+import { Lock, User, LogIn, AlertCircle, UserPlus, Mail, Phone, ChevronLeft, Download } from 'lucide-react';
 
 interface LoginRegisterProps {
     onLogin: (user: string, pass: string) => Promise<boolean>;
@@ -112,6 +112,91 @@ const LoginRegister: React.FC<LoginRegisterProps> = ({ onLogin, onRegister, isLo
         setError('');
         setSuccess('');
         setGeneratedCredentials(null);
+    };
+
+    const downloadCredentialsImage = () => {
+        if (!generatedCredentials) return;
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Configurar tamaño del canvas
+        canvas.width = 600;
+        canvas.height = 400;
+
+        // Fondo con degradado
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, '#0f172a');
+        gradient.addColorStop(1, '#1e293b');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Borde
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+        // Título
+        ctx.fillStyle = '#10b981';
+        ctx.font = 'bold 32px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('CREDENCIALES DE ACCESO', canvas.width / 2, 70);
+
+        // Subtítulo
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '16px sans-serif';
+        ctx.fillText('Guarde estas credenciales en un lugar seguro', canvas.width / 2, 100);
+
+        // Caja de credenciales
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(50, 130, canvas.width - 100, 180);
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(50, 130, canvas.width - 100, 180);
+
+        // Usuario
+        ctx.fillStyle = '#64748b';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Usuario:', 80, 170);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px monospace';
+        ctx.fillText(generatedCredentials.username, 80, 205);
+
+        // Contraseña
+        ctx.fillStyle = '#64748b';
+        ctx.font = '14px sans-serif';
+        ctx.fillText('Contraseña:', 80, 245);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px monospace';
+        ctx.fillText(generatedCredentials.password, 80, 280);
+
+        // Advertencia
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = '13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚠️ Guarde sus credenciales para poder iniciar sesión. Luego podrá cambiarlo.', canvas.width / 2, 350);
+
+        // Fecha
+        ctx.fillStyle = '#64748b';
+        ctx.font = '12px sans-serif';
+        const fecha = new Date().toLocaleString('es-ES');
+        ctx.fillText(`Generado el ${fecha}`, canvas.width / 2, 375);
+
+        // Descargar
+        canvas.toBlob((blob) => {
+            if (blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `credenciales_${generatedCredentials.username}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        }, 'image/png');
     };
 
     const isModal = variant === 'modal';
@@ -319,18 +404,27 @@ const LoginRegister: React.FC<LoginRegisterProps> = ({ onLogin, onRegister, isLo
                                         <div className="text-slate-300 text-sm text-center">
                                             Guarde estas credenciales en un lugar seguro:
                                         </div>
-                                        <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+                                        <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 relative">
                                             <div>
                                                 <div className="text-slate-500 text-xs mb-1">Usuario:</div>
                                                 <div className="text-white font-mono font-bold text-lg">{generatedCredentials.username}</div>
                                             </div>
-                                            <div>
-                                                <div className="text-slate-500 text-xs mb-1">Contraseña:</div>
-                                                <div className="text-white font-mono font-bold text-lg">{generatedCredentials.password}</div>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex-1">
+                                                    <div className="text-slate-500 text-xs mb-1">Contraseña:</div>
+                                                    <div className="text-white font-mono font-bold text-lg">{generatedCredentials.password}</div>
+                                                </div>
+                                                <button
+                                                    onClick={downloadCredentialsImage}
+                                                    className="p-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-all shadow-lg hover:scale-105 flex-shrink-0"
+                                                    title="Descargar credenciales como imagen"
+                                                >
+                                                    <Download size={18} />
+                                                </button>
                                             </div>
                                         </div>
                                         <div className="text-amber-400 text-xs text-center">
-                                            ⚠️ Importante: No podrá recuperar estas credenciales. Guárdelas ahora.
+                                            ⚠️ Importante: Guarde sus credenciales para poder iniciar sesión. Luego podrá cambiarlo.
                                         </div>
                                     </div>
 

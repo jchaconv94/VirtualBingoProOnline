@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, RotateCcw, Trophy, Hash, History, LayoutGrid, Eye, X, Star, Gift, CheckCircle, Circle, PauseCircle, PlayCircle, Lock } from 'lucide-react';
+import { Play, RotateCcw, Trophy, Hash, History, LayoutGrid, Eye, X, Star, Gift, CheckCircle, Circle, PauseCircle, PlayCircle, Lock, Settings } from 'lucide-react';
 import { PatternKey, WinPattern, Prize } from '../types.ts';
-import { WIN_PATTERNS } from '../utils/helpers.ts';
+import { WIN_PATTERNS, toTitleCase } from '../utils/helpers.ts';
 
 interface Props {
   drawnBalls: number[];
@@ -18,6 +18,11 @@ interface Props {
   isPaused?: boolean;
   onTogglePause?: () => void;
   canControlGame?: boolean;
+  roomName?: string;
+  masterName?: string;
+  onEditRoom?: () => void;
+  isMaster?: boolean;
+  userRole?: 'admin' | 'player';
 }
 
 const getBingoLetter = (num: number): string => {
@@ -112,7 +117,12 @@ const GamePanel: React.FC<Props> = ({
   roundLocked,
   isPaused = false,
   onTogglePause,
-  canControlGame = true
+  canControlGame = true,
+  roomName,
+  masterName,
+  onEditRoom,
+  isMaster = false,
+  userRole
 }) => {
   const [currentBall, setCurrentBall] = useState<number | string>('—');
   const [isAnimating, setIsAnimating] = useState(false);
@@ -182,7 +192,7 @@ const GamePanel: React.FC<Props> = ({
   let buttonLabel = "SACAR BOLILLA";
 
   if (!canControlGame) {
-    buttonTooltip = "Solo el administrador puede controlar el sorteo.";
+    buttonTooltip = "Solo el master de la sala puede controlar el sorteo.";
     buttonLabel = "CONTROL BLOQUEADO";
   } else if (isPaused) {
     buttonTooltip = "Juego Pausado. Reanuda para continuar.";
@@ -322,10 +332,29 @@ const GamePanel: React.FC<Props> = ({
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-4 relative z-10">
           <div>
-            <h2 className="text-lg 2xl:text-3xl font-bold text-white flex items-center gap-2 mb-0.5">
-              <Trophy className="text-amber-500 w-5 h-5 2xl:w-8 2xl:h-8" />
-              Sorteo
-            </h2>
+            <div className="flex items-center gap-2 mb-0.5">
+              <h2 className="text-lg 2xl:text-3xl font-bold text-white flex items-center gap-2">
+                <Trophy className="text-amber-500 w-5 h-5 2xl:w-8 2xl:h-8" />
+                {roomName ? roomName.toUpperCase() : 'SORTEO'}
+              </h2>
+              
+              {/* Botón de editar sala */}
+              {(isMaster || userRole === 'admin') && onEditRoom && (
+                <button
+                  onClick={onEditRoom}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-cyan-400 border border-slate-700 hover:border-cyan-500/50 transition-all"
+                  title="Editar datos de la sala"
+                >
+                  <Settings size={18} />
+                </button>
+              )}
+            </div>
+            
+            {masterName && (
+              <div className="text-[11px] text-slate-400 mb-1">
+                Organizado por: <span className="text-cyan-400 font-medium">{toTitleCase(masterName)}</span>
+              </div>
+            )}
             <div className="text-[12px] text-slate-500">Progreso: <span className="text-slate-300 font-mono">{drawnBalls.length} / 75</span></div>
           </div>
 
@@ -337,10 +366,11 @@ const GamePanel: React.FC<Props> = ({
               <select
                 value={currentPattern}
                 onChange={(e) => handlePatternSelect(e.target.value as PatternKey)}
-                disabled={roundLocked || !canControlGame}
+                disabled={roundLocked || !(isMaster || userRole === 'admin')}
                 className={`
                   bg-slate-950 border text-white text-xs sm:text-sm rounded-lg block w-full px-2.5 py-1.5 cursor-pointer transition-all
                   ${currentPattern === 'NONE' ? 'border-amber-500 ring-1 ring-amber-500/50 text-amber-300 animate-pulse' : 'border-slate-700 focus:ring-cyan-500 focus:border-cyan-500 hover:border-cyan-500/50'}
+                  ${!(isMaster || userRole === 'admin') && !roundLocked ? 'opacity-50 cursor-not-allowed' : ''}
                 `}
               >
                 {Object.values(WIN_PATTERNS).map((pattern: WinPattern) => (
