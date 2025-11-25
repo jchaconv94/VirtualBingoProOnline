@@ -93,11 +93,8 @@ const GameRoom: React.FC<GameRoomProps> = ({
     const isPollingRef = useRef(false);
 
     // --- State ---
-    const [participants, setParticipants] = useState<Participant[]>(() => {
-        const key = getRoomScopedKey(LS_KEYS.PARTICIPANTS, activeRoomId);
-        const saved = localStorage.getItem(key);
-        return saved ? JSON.parse(saved) : [];
-    });
+    // Always start empty and load from database (no localStorage cache)
+    const [participants, setParticipants] = useState<Participant[]>([]);
 
     const [gameState, setGameState] = useState<GameState>(() => {
         const defaults = {
@@ -200,8 +197,9 @@ const GameRoom: React.FC<GameRoomProps> = ({
         setParticipants(prev => {
             const idx = prev.findIndex(p => p.id === payload.id || (payload.userId && p.userId === payload.userId));
             if (idx >= 0) {
+                // Update existing participant with ALL new data including cards
                 const cloned = [...prev];
-                cloned[idx] = { ...cloned[idx], ...payload };
+                cloned[idx] = payload; // Replace completely, not merge
                 return cloned;
             }
             return [payload, ...prev];
@@ -215,12 +213,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
     }, [currentUser, sheetUrl, derivePlayerParticipantFromCards]);
 
     // --- Persistence ---
-    useEffect(() => {
-        if (activeRoomId) {
-            const key = getRoomScopedKey(LS_KEYS.PARTICIPANTS, activeRoomId);
-            localStorage.setItem(key, JSON.stringify(participants));
-        }
-    }, [participants, activeRoomId]);
+    // Note: Participants are NOT saved to localStorage, always loaded fresh from DB
     useEffect(() => {
         if (activeRoomId) {
             const key = getRoomScopedKey(LS_KEYS.GAME_STATE, activeRoomId);
@@ -865,7 +858,7 @@ const GameRoom: React.FC<GameRoomProps> = ({
                         onShareAllCards={handleShareAllCards}
                         prizes={prizes}
                         totalCards={totalCards}
-                        userRole={isMaster ? 'admin' : 'player'}
+                        userRole={isMaster || userRole === 'admin' ? 'admin' : 'player'}
                         currentUser={currentUser}
                     />
                 </aside>

@@ -1,5 +1,6 @@
 
 import { Participant, UserData, CartonData } from '../types.ts';
+import { isConcurrencyErrorMessage, retryOnConcurrencyError } from '../utils/retryOnConcurrencyError.ts';
 
 export interface ApiResponse {
   success: boolean;
@@ -197,25 +198,29 @@ export const SheetAPI = {
   // GAS devuelve redirects, fetch los sigue.
 
   async syncParticipant(url: string, participant: Participant): Promise<ApiResponse> {
-    try {
-      // Usamos el parámetro ?action=save en la URL y enviamos el body
-      const endpoint = `${url}?action=save`;
+    return retryOnConcurrencyError(async () => {
+      try {
+        const endpoint = `${url}?action=save`;
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          body: JSON.stringify({ participant }),
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+          },
+        });
 
-      // Para evitar problemas de CORS con GAS, usamos text/plain
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        body: JSON.stringify({ participant }),
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
-        },
-      });
-
-      const json = await response.json();
-      return json;
-    } catch (error) {
-      console.error("Sync Error:", error);
-      return { success: false, error: String(error) };
-    }
+        const json = await response.json();
+        if (!json.success && isConcurrencyErrorMessage(json.message)) {
+          throw new Error(json.message || 'Demasiadas invocaciones simultáneas');
+        }
+        return json;
+      } catch (error) {
+        console.error("Sync Error:", error);
+        throw error;
+      }
+    }, {
+      onRetry: (attempt, message) => console.log(`syncParticipant retry ${attempt}:`, message),
+    });
   },
 
   async deleteParticipant(url: string, id: string): Promise<ApiResponse> {
@@ -247,15 +252,28 @@ export const SheetAPI = {
   },
 
   async fetchAll(url: string): Promise<Participant[] | null> {
-    try {
+    const execute = async () => {
       const endpoint = `${url}?action=read`;
       const response = await fetch(endpoint);
       const json = await response.json();
 
-      if (json.success && Array.isArray(json.data)) {
+      if (!json.success) {
+        if (isConcurrencyErrorMessage(json.message)) {
+          throw new Error(json.message || 'Demasiadas invocaciones simultáneas');
+        }
+        return null;
+      }
+
+      if (Array.isArray(json.data)) {
         return json.data as Participant[];
       }
       return null;
+    };
+
+    try {
+      return await retryOnConcurrencyError(execute, {
+        onRetry: (attempt, message) => console.log(`fetchAll retry ${attempt}:`, message),
+      });
     } catch (error) {
       console.error("Fetch Error:", error);
       return null;
@@ -297,47 +315,61 @@ export const SheetAPI = {
    * Create multiple cards at once (optimized for bulk purchases)
    */
   async createMultipleCards(url: string, idUser: string, cardsData: { numbers: number[]; roomId: string }[]): Promise<ApiResponse> {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'create_multiple_cards',
-          cardsData: cardsData.map(card => ({
-            idUser,
-            idRoom: card.roomId,
-            numbers: card.numbers
-          }))
-        }),
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
-        },
-      });
-      const json = await response.json();
-      return json;
-    } catch (error) {
-      console.error("Create Multiple Cards Error:", error);
-      return { success: false, error: String(error) };
-    }
+    return retryOnConcurrencyError(async () => {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'create_multiple_cards',
+            cardsData: cardsData.map(card => ({
+              idUser,
+              idRoom: card.roomId,
+              numbers: card.numbers
+            }))
+          }),
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+          },
+        });
+        const json = await response.json();
+        if (!json.success && isConcurrencyErrorMessage(json.message)) {
+          throw new Error(json.message || 'Demasiadas invocaciones simultáneas');
+        }
+        return json;
+      } catch (error) {
+        console.error("Create Multiple Cards Error:", error);
+        throw error;
+      }
+    }, {
+      onRetry: (attempt, message) => console.log(`createMultipleCards retry ${attempt}:`, message),
+    });
   },
 
   /**
    * Get all cards for a specific user
    */
   async getUserCards(url: string, userId: string, roomId?: string): Promise<ApiResponse> {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'get_user_cards', userId, roomId }),
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
-        },
-      });
-      const json = await response.json();
-      return json;
-    } catch (error) {
-      console.error("Get User Cards Error:", error);
-      return { success: false, error: String(error) };
-    }
+    return retryOnConcurrencyError(async () => {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'get_user_cards', userId, roomId }),
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+          },
+        });
+        const json = await response.json();
+        if (!json.success && isConcurrencyErrorMessage(json.message)) {
+          throw new Error(json.message || 'Demasiadas invocaciones simultáneas');
+        }
+        return json;
+      } catch (error) {
+        console.error("Get User Cards Error:", error);
+        throw error;
+      }
+    }, {
+      onRetry: (attempt, message) => console.log(`getUserCards retry ${attempt}:`, message),
+    });
   },
 
   /**
@@ -481,24 +513,31 @@ export const SheetAPI = {
    * Join a room (register participant entry)
    */
   async joinRoom(url: string, roomId: string, userId: string, password?: string): Promise<ApiResponse> {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'join_room',
-          roomId,
-          userId,
-          password
-        }),
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
-        },
-      });
-      const json = await response.json();
-      return json;
-    } catch (error) {
-      console.error("Join Room Error:", error);
-      return { success: false, error: String(error) };
-    }
+    return retryOnConcurrencyError(async () => {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'join_room',
+            roomId,
+            userId,
+            password
+          }),
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+          },
+        });
+        const json = await response.json();
+        if (!json.success && isConcurrencyErrorMessage(json.message)) {
+          throw new Error(json.message || 'Demasiadas invocaciones simultáneas');
+        }
+        return json;
+      } catch (error) {
+        console.error("Join Room Error:", error);
+        throw error;
+      }
+    }, {
+      onRetry: (attempt, message) => console.log(`joinRoom retry ${attempt}:`, message),
+    });
   }
 };
